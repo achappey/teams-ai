@@ -57,14 +57,14 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(options.ApiKey, "AssistantsPlannerOptions.ApiKey");
             Verify.ParamNotNull(options.AssistantId, "AssistantsPlannerOptions.AssistantId");
 
-            _options = new AssistantsPlannerOptions(options.ApiKey, options.AssistantId)
+            this._options = new AssistantsPlannerOptions(options.ApiKey, options.AssistantId)
             {
                 Organization = options.Organization,
                 PollingInterval = options.PollingInterval ?? DEFAULT_POLLING_INTERVAL
             };
-            _openAIClient = new OpenAIClient(new OpenAIClientOptions(_options.ApiKey)
+            this._openAIClient = new OpenAIClient(new OpenAIClientOptions(this._options.ApiKey)
             {
-                Organization = _options.Organization
+                Organization = this._options.Organization
             },
             loggerFactory,
             httpClient);
@@ -76,7 +76,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(turnContext);
             Verify.ParamNotNull(turnState);
             Verify.ParamNotNull(ai);
-            return await ContinueTaskAsync(turnContext, turnState, ai, cancellationToken);
+            return await this.ContinueTaskAsync(turnContext, turnState, ai, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -87,22 +87,22 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(ai);
 
             // Create a new thread if we don't have one already
-            string threadId = await _EnsureThreadCreatedAsync(turnState, cancellationToken);
+            string threadId = await this._EnsureThreadCreatedAsync(turnState, cancellationToken);
 
             // Add the users input to the thread or send tool outputs
             if (turnState.SubmitToolOutputs)
             {
                 // Send the tool output to the assistant
-                return await _SubmitActionResultsAsync(turnState, cancellationToken);
+                return await this._SubmitActionResultsAsync(turnState, cancellationToken);
             }
             else
             {
                 // Wait for any current runs to complete since you can't add messages or start new runs
                 // if there's already one in progress
-                await _BlockOnInProgressRunsAsync(threadId, cancellationToken);
+                await this._BlockOnInProgressRunsAsync(threadId, cancellationToken);
 
                 // Submit user input
-                return await _SubmitUserInputAsync(turnState, cancellationToken);
+                return await this._SubmitUserInputAsync(turnState, cancellationToken);
             }
         }
 
@@ -110,7 +110,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         {
             if (state.ThreadId == null)
             {
-                OpenAI.Models.Thread thread = await _openAIClient.CreateThreadAsync(new(), cancellationToken);
+                OpenAI.Models.Thread thread = await this._openAIClient.CreateThreadAsync(new(), cancellationToken);
                 state.ThreadId = thread.Id;
             }
 
@@ -134,9 +134,9 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         {
             while (true)
             {
-                await Task.Delay((TimeSpan)_options.PollingInterval!, cancellationToken);
+                await Task.Delay((TimeSpan)this._options.PollingInterval!, cancellationToken);
 
-                Run run = await _openAIClient.RetrieveRunAsync(threadId, runId, cancellationToken);
+                Run run = await this._openAIClient.RetrieveRunAsync(threadId, runId, cancellationToken);
                 switch (run.Status)
                 {
                     case "requires_action":
@@ -161,21 +161,21 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             // Loop until the last run is completed
             while (true)
             {
-                Run? run = await _openAIClient.RetrieveLastRunAsync(threadId, cancellationToken);
-                if (run == null || _IsRunCompleted(run))
+                Run? run = await this._openAIClient.RetrieveLastRunAsync(threadId, cancellationToken);
+                if (run == null || this._IsRunCompleted(run))
                 {
                     return;
                 }
 
                 // Wait for the current run to complete and then loop to see if there's already a new run.
-                await _WaitForRunAsync(threadId, run.Id, false, cancellationToken);
+                await this._WaitForRunAsync(threadId, run.Id, false, cancellationToken);
             }
         }
 
         private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string lastMessageId, CancellationToken cancellationToken)
         {
             // Find the new messages
-            IAsyncEnumerable<Message> messages = _openAIClient.ListNewMessagesAsync(threadId, lastMessageId, cancellationToken);
+            IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, cancellationToken);
             List<Message> newMessages = new();
             await foreach (Message message in messages.WithCancellation(cancellationToken))
             {
@@ -240,21 +240,21 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             }
 
             // Submit the tool outputs
-            Run run = await _openAIClient.SubmitToolOutputsAsync(state.ThreadId!, state.RunId!, new()
+            Run run = await this._openAIClient.SubmitToolOutputsAsync(state.ThreadId!, state.RunId!, new()
             {
                 ToolOutputs = toolOutputs
             }, cancellationToken);
 
             // Wait for the run to complete
-            Run result = await _WaitForRunAsync(state.ThreadId!, run.Id, true, cancellationToken);
+            Run result = await this._WaitForRunAsync(state.ThreadId!, run.Id, true, cancellationToken);
             switch (result.Status)
             {
                 case "requires_action":
                     state.SubmitToolOutputs = true;
-                    return _GeneratePlanFromTools(state, result.RequiredAction!);
+                    return this._GeneratePlanFromTools(state, result.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await _GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
@@ -267,33 +267,33 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         private async Task<Plan> _SubmitUserInputAsync(TState state, CancellationToken cancellationToken)
         {
             // Get the current thread_id
-            string threadId = await _EnsureThreadCreatedAsync(state, cancellationToken);
+            string threadId = await this._EnsureThreadCreatedAsync(state, cancellationToken);
 
             // Add the users input to the thread
-            Message message = await _openAIClient.CreateMessageAsync(threadId, new()
+            Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
             {
                 Content = state.Temp?.Input ?? string.Empty
             }, cancellationToken);
 
             // Create a new run
-            Run run = await _openAIClient.CreateRunAsync(threadId, new()
+            Run run = await this._openAIClient.CreateRunAsync(threadId, new()
             {
-                AssistantId = _options.AssistantId
+                AssistantId = this._options.AssistantId
             }, cancellationToken);
 
             // Update state and wait for the run to complete
             state.ThreadId = threadId;
             state.RunId = run.Id;
             state.LastMessageId = message.Id;
-            Run result = await _WaitForRunAsync(threadId, run.Id, true, cancellationToken);
+            Run result = await this._WaitForRunAsync(threadId, run.Id, true, cancellationToken);
             switch (result.Status)
             {
                 case "requires_action":
                     state.SubmitToolOutputs = true;
-                    return _GeneratePlanFromTools(state, result.RequiredAction!);
+                    return this._GeneratePlanFromTools(state, result.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await _GeneratePlanFromMessagesAsync(threadId, message.Id, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(threadId, message.Id, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":

@@ -30,17 +30,17 @@ namespace Microsoft.Teams.AI.AI
         {
             Verify.ParamNotNull(options);
 
-            Options = new AIOptions<TState>(options.Planner)
+            this.Options = new AIOptions<TState>(options.Planner)
             {
                 Moderator = options.Moderator ?? new DefaultModerator<TState>(),
                 MaxSteps = options.MaxSteps ?? 25,
                 MaxTime = options.MaxTime ?? TimeSpan.FromMilliseconds(300000),
                 AllowLooping = options.AllowLooping ?? true,
             };
-            _actions = new ActionCollection<TState>();
+            this._actions = new ActionCollection<TState>();
 
             // Import default actions
-            ImportActions(new DefaultActions<TState>(loggerFactory));
+            this.ImportActions(new DefaultActions<TState>(loggerFactory));
         }
 
         /// <summary>
@@ -49,7 +49,7 @@ namespace Microsoft.Teams.AI.AI
         /// <remarks>
         /// The default moderator simply allows all messages and plans through without intercepting them.
         /// </remarks>
-        public IModerator<TState> Moderator => Options.Moderator!;
+        public IModerator<TState> Moderator => this.Options.Moderator!;
 
         /// <summary>
         /// Returns the options for the AI system.
@@ -59,7 +59,7 @@ namespace Microsoft.Teams.AI.AI
         /// <summary>
         /// Returns the planner being used by the AI system.
         /// </summary>
-        public IPlanner<TState> Planner => Options.Planner;
+        public IPlanner<TState> Planner => this.Options.Planner;
 
         /// <summary>
         /// Registers a handler for a named action.
@@ -87,13 +87,13 @@ namespace Microsoft.Teams.AI.AI
             Verify.ParamNotNull(name);
             Verify.ParamNotNull(handler);
 
-            if (!_actions.ContainsAction(name))
+            if (!this._actions.ContainsAction(name))
             {
-                _actions.AddAction(name, handler, allowOverrides: false);
+                this._actions.AddAction(name, handler, allowOverrides: false);
             }
             else
             {
-                ActionEntry<TState> entry = _actions[name];
+                ActionEntry<TState> entry = this._actions[name];
                 if (entry.AllowOverrides)
                 {
                     entry.Handler = handler;
@@ -122,13 +122,13 @@ namespace Microsoft.Teams.AI.AI
             Verify.ParamNotNull(name);
             Verify.ParamNotNull(handler);
 
-            if (!_actions.ContainsAction(name))
+            if (!this._actions.ContainsAction(name))
             {
-                _actions.AddAction(name, handler, allowOverrides: true);
+                this._actions.AddAction(name, handler, allowOverrides: true);
             }
             else
             {
-                ActionEntry<TState> entry = _actions[name];
+                ActionEntry<TState> entry = this._actions[name];
                 entry.Handler = handler;
                 entry.AllowOverrides = true;
             }
@@ -166,11 +166,11 @@ namespace Microsoft.Teams.AI.AI
             {
                 if (action.AllowOverrides)
                 {
-                    RegisterDefaultAction(action.Name, action.Handler);
+                    this.RegisterDefaultAction(action.Name, action.Handler);
                 }
                 else
                 {
-                    RegisterAction(action.Name, action.Handler);
+                    this.RegisterAction(action.Name, action.Handler);
                 }
             });
 
@@ -184,7 +184,7 @@ namespace Microsoft.Teams.AI.AI
         /// <returns>True if the AI system has a handler for the given action.</returns>
         public bool ContainsAction(string action)
         {
-            return _actions.ContainsAction(action);
+            return this._actions.ContainsAction(action);
         }
 
         /// <summary>
@@ -208,37 +208,32 @@ namespace Microsoft.Teams.AI.AI
             Verify.ParamNotNull(turnState);
 
             // Initialize start time
-            startTime = startTime ?? DateTime.UtcNow;
+            startTime ??= DateTime.UtcNow;
 
             // Populate {{$temp.input}}
-            _SetTempStateValues(turnState, turnContext);
+            this._SetTempStateValues(turnState, turnContext);
 
             Plan? plan = null;
 
             // Review input on first loop
             if (stepCount == 0)
             {
-                plan = await Options.Moderator!.ReviewInputAsync(turnContext, turnState, cancellationToken);
+                plan = await this.Options.Moderator!.ReviewInputAsync(turnContext, turnState, cancellationToken);
             }
 
             // Generate plan
             if (plan == null)
             {
-                if (stepCount == 0)
-                {
-                    plan = await Options.Planner.BeginTaskAsync(turnContext, turnState, this, cancellationToken);
-                }
-                else
-                {
-                    plan = await Options.Planner.ContinueTaskAsync(turnContext, turnState, this, cancellationToken);
-                }
+                plan = stepCount == 0
+                    ? await this.Options.Planner.BeginTaskAsync(turnContext, turnState, this, cancellationToken)
+                    : await this.Options.Planner.ContinueTaskAsync(turnContext, turnState, this, cancellationToken);
 
                 // Review the plans output
-                plan = await Options.Moderator!.ReviewOutputAsync(turnContext, turnState, plan, cancellationToken);
+                plan = await this.Options.Moderator!.ReviewOutputAsync(turnContext, turnState, plan, cancellationToken);
             }
 
             // Process generated plan
-            string response = await _actions[AIConstants.PlanReadyActionName].Handler.PerformActionAsync(turnContext, turnState, plan, AIConstants.PlanReadyActionName, cancellationToken);
+            string response = await this._actions[AIConstants.PlanReadyActionName].Handler.PerformActionAsync(turnContext, turnState, plan, AIConstants.PlanReadyActionName, cancellationToken);
             if (string.Equals(response, AIConstants.StopCommand))
             {
                 return false;
@@ -251,11 +246,11 @@ namespace Microsoft.Teams.AI.AI
             foreach (IPredictedCommand command in plan.Commands)
             {
                 // Check for timeout
-                if (DateTime.UtcNow - startTime > Options.MaxTime || ++stepCount > Options.MaxSteps)
+                if (DateTime.UtcNow - startTime > this.Options.MaxTime || ++stepCount > this.Options.MaxSteps)
                 {
                     completed = false;
-                    TooManyStepsParameters parameters = new(Options.MaxSteps!.Value, Options.MaxTime!.Value, startTime.Value, stepCount);
-                    await _actions[AIConstants.TooManyStepsActionName]
+                    TooManyStepsParameters parameters = new(this.Options.MaxSteps!.Value, this.Options.MaxTime!.Value, startTime.Value, stepCount);
+                    await this._actions[AIConstants.TooManyStepsActionName]
                         .Handler
                         .PerformActionAsync(turnContext, turnState, parameters, AIConstants.TooManyStepsActionName, cancellationToken);
                     break;
@@ -264,12 +259,12 @@ namespace Microsoft.Teams.AI.AI
                 string output;
                 if (command is PredictedDoCommand doCommand)
                 {
-                    if (_actions.ContainsAction(doCommand.Action))
+                    if (this._actions.ContainsAction(doCommand.Action))
                     {
                         DoCommandActionData<TState> data = new()
                         {
                             PredictedDoCommand = doCommand,
-                            Handler = _actions[doCommand.Action].Handler
+                            Handler = this._actions[doCommand.Action].Handler
                         };
 
                         // Call action handler
@@ -315,14 +310,9 @@ namespace Microsoft.Teams.AI.AI
             }
 
             // Check for looping
-            if (completed && shouldLoop && Options.AllowLooping!.Value)
-            {
-                return await RunAsync(turnContext, turnState, startTime, stepCount, cancellationToken);
-            }
-            else
-            {
-                return completed;
-            }
+            return completed && shouldLoop && this.Options.AllowLooping!.Value
+                ? await this.RunAsync(turnContext, turnState, startTime, stepCount, cancellationToken)
+                : completed;
         }
 
         private void _SetTempStateValues(TState turnState, ITurnContext turnContext)

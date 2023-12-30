@@ -53,51 +53,44 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(options);
 
-            Options = options;
+            this.Options = options;
 
-            if (Options.TurnStateFactory == null)
+            if (this.Options.TurnStateFactory == null)
             {
                 this.Options.TurnStateFactory = () => new TState();
             }
 
-            if (Options.AI != null)
+            if (this.Options.AI != null)
             {
-                _ai = new AI<TState>(Options.AI, Options.LoggerFactory);
+                this._ai = new AI<TState>(this.Options.AI, this.Options.LoggerFactory);
             }
 
-            if (Options.Adapter != null)
+            if (this.Options.Adapter != null)
             {
-                _adapter = Options.Adapter;
+                this._adapter = this.Options.Adapter;
             }
 
-            AdaptiveCards = new AdaptiveCards<TState>(this);
-            Meetings = new Meetings<TState>(this);
-            MessageExtensions = new MessageExtensions<TState>(this);
-            TaskModules = new TaskModules<TState>(this);
+            this.AdaptiveCards = new AdaptiveCards<TState>(this);
+            this.Meetings = new Meetings<TState>(this);
+            this.MessageExtensions = new MessageExtensions<TState>(this);
+            this.TaskModules = new TaskModules<TState>(this);
 
             // Validate long running messages configuration
-            if (Options.LongRunningMessages && (Options.Adapter == null || Options.BotAppId == null))
+            if (this.Options.LongRunningMessages && (this.Options.Adapter == null || this.Options.BotAppId == null))
             {
                 throw new ArgumentException("The ApplicationOptions.LongRunningMessages property is unavailable because no adapter or botAppId was configured.");
             }
 
-            _routes = new ConcurrentQueue<Route<TState>>();
-            _invokeRoutes = new ConcurrentQueue<Route<TState>>();
-            _beforeTurn = new ConcurrentQueue<TurnEventHandlerAsync<TState>>();
-            _afterTurn = new ConcurrentQueue<TurnEventHandlerAsync<TState>>();
+            this._routes = new ConcurrentQueue<Route<TState>>();
+            this._invokeRoutes = new ConcurrentQueue<Route<TState>>();
+            this._beforeTurn = new ConcurrentQueue<TurnEventHandlerAsync<TState>>();
+            this._afterTurn = new ConcurrentQueue<TurnEventHandlerAsync<TState>>();
 
             if (options.Authentication != null)
             {
-                _authentication = new AuthenticationManager<TState>(this, options.Authentication, options.Storage);
+                this._authentication = new AuthenticationManager<TState>(this, options.Authentication, options.Storage);
 
-                if (options.Authentication.AutoSignIn != null)
-                {
-                    _startSignIn = options.Authentication.AutoSignIn;
-                }
-                else
-                {
-                    _startSignIn = (context, cancellationToken) => Task.FromResult(true);
-                }
+                this._startSignIn = options.Authentication.AutoSignIn ?? ((context, cancellationToken) => Task.FromResult(true));
             }
         }
 
@@ -124,19 +117,7 @@ namespace Microsoft.Teams.AI
         /// <summary>
         /// Accessing authentication specific features.
         /// </summary>
-        public AuthenticationManager<TState> Authentication
-        {
-
-            get
-            {
-                if (_authentication == null)
-                {
-                    throw new ArgumentException("The Application.Authentication property is unavailable because no authentication options were configured.");
-                }
-
-                return _authentication;
-            }
-        }
+        public AuthenticationManager<TState> Authentication => this._authentication ?? throw new ArgumentException("The Application.Authentication property is unavailable because no authentication options were configured.");
 
         /// <summary>
         /// Fluent interface for accessing AI specific features.
@@ -145,34 +126,12 @@ namespace Microsoft.Teams.AI
         /// This property is only available if the Application was configured with 'ai' options. An
         /// exception will be thrown if you attempt to access it otherwise.
         /// </remarks>
-        public AI<TState> AI
-        {
-            get
-            {
-                if (_ai == null)
-                {
-                    throw new ArgumentException("The Application.AI property is unavailable because no AI options were configured.");
-                }
-
-                return _ai;
-            }
-        }
+        public AI<TState> AI => this._ai ?? throw new ArgumentException("The Application.AI property is unavailable because no AI options were configured.");
 
         /// <summary>
         /// Fluent interface for accessing the bot adapter used to configure the application.
         /// </summary>
-        public BotAdapter Adapter
-        {
-            get
-            {
-                if (_adapter == null)
-                {
-                    throw new ArgumentException("The Application.Adapter property is unavailable because it was not configured.");
-                }
-
-                return _adapter;
-            }
-        }
+        public BotAdapter Adapter => this._adapter ?? throw new ArgumentException("The Application.Adapter property is unavailable because it was not configured.");
 
         /// <summary>
         /// The application's configured options.
@@ -202,11 +161,11 @@ namespace Microsoft.Teams.AI
             Route<TState> route = new(selector, handler, isInvokeRoute);
             if (isInvokeRoute)
             {
-                _invokeRoutes.Enqueue(route);
+                this._invokeRoutes.Enqueue(route);
             }
             else
             {
-                _routes.Enqueue(route);
+                this._routes.Enqueue(route);
             }
             return this;
         }
@@ -221,8 +180,12 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(type);
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult(string.Equals(type, context.Activity?.Type, StringComparison.OrdinalIgnoreCase));
-            OnActivity(routeSelector, handler);
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult(string.Equals(type, context.Activity?.Type, StringComparison.OrdinalIgnoreCase));
+            }
+
+            this.OnActivity(routeSelector, handler);
             return this;
         }
 
@@ -236,8 +199,12 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(typePattern);
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult(context.Activity?.Type != null && typePattern.IsMatch(context.Activity?.Type));
-            OnActivity(routeSelector, handler);
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult(context.Activity?.Type != null && typePattern.IsMatch(context.Activity?.Type));
+            }
+
+            this.OnActivity(routeSelector, handler);
             return this;
         }
 
@@ -251,7 +218,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -269,21 +236,21 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string type in routeSelectors.Strings)
                 {
-                    OnActivity(type, handler);
+                    this.OnActivity(type, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex typePattern in routeSelectors.Regexes)
                 {
-                    OnActivity(typePattern, handler);
+                    this.OnActivity(typePattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnActivity(routeSelector, handler);
+                    this.OnActivity(routeSelector, handler);
                 }
             }
             return this;
@@ -364,7 +331,7 @@ namespace Microsoft.Teams.AI
                     break;
                 }
             }
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -380,7 +347,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(handler);
             foreach (string conversationUpdateEvent in conversationUpdateEvents)
             {
-                OnConversationUpdate(conversationUpdateEvent, handler);
+                this.OnConversationUpdate(conversationUpdateEvent, handler);
             }
             return this;
         }
@@ -402,14 +369,17 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(text);
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _)
-                => Task.FromResult
-                (
-                    string.Equals(ActivityTypes.Message, context.Activity?.Type, StringComparison.OrdinalIgnoreCase)
-                    && context.Activity?.Text != null
-                    && context.Activity.Text.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
-                );
-            OnMessage(routeSelector, handler);
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
+                            (
+                                string.Equals(ActivityTypes.Message, context.Activity?.Type, StringComparison.OrdinalIgnoreCase)
+                                && context.Activity?.Text != null
+                                && context.Activity.Text.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0
+                            );
+            }
+
+            this.OnMessage(routeSelector, handler);
             return this;
         }
 
@@ -430,14 +400,17 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(textPattern);
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _)
-                => Task.FromResult
-                (
-                    string.Equals(ActivityTypes.Message, context.Activity?.Type, StringComparison.OrdinalIgnoreCase)
-                    && context.Activity?.Text != null
-                    && textPattern.IsMatch(context.Activity.Text)
-                );
-            OnMessage(routeSelector, handler);
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
+                            (
+                                string.Equals(ActivityTypes.Message, context.Activity?.Type, StringComparison.OrdinalIgnoreCase)
+                                && context.Activity?.Text != null
+                                && textPattern.IsMatch(context.Activity.Text)
+                            );
+            }
+
+            this.OnMessage(routeSelector, handler);
             return this;
         }
 
@@ -454,7 +427,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -475,21 +448,21 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string text in routeSelectors.Strings)
                 {
-                    OnMessage(text, handler);
+                    this.OnMessage(text, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex textPattern in routeSelectors.Regexes)
                 {
-                    OnMessage(textPattern, handler);
+                    this.OnMessage(textPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnMessage(routeSelector, handler);
+                    this.OnMessage(routeSelector, handler);
                 }
             }
             return this;
@@ -503,7 +476,7 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnMessageEdit(RouteHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            static Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 TeamsChannelData teamsChannelData;
                 return Task.FromResult(
@@ -511,8 +484,8 @@ namespace Microsoft.Teams.AI
                     && string.Equals(turnContext.Activity.ChannelId, Channels.Msteams)
                     && (teamsChannelData = turnContext.Activity.GetChannelData<TeamsChannelData>()) != null
                     && string.Equals(teamsChannelData.EventType, "editMessage"));
-            };
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            }
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -524,7 +497,7 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnMessageUndelete(RouteHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            static Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 TeamsChannelData teamsChannelData;
                 return Task.FromResult(
@@ -532,8 +505,8 @@ namespace Microsoft.Teams.AI
                     && string.Equals(turnContext.Activity.ChannelId, Channels.Msteams)
                     && (teamsChannelData = turnContext.Activity.GetChannelData<TeamsChannelData>()) != null
                     && string.Equals(teamsChannelData.EventType, "undeleteMessage"));
-            };
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            }
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -545,7 +518,7 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnMessageDelete(RouteHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            static Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 TeamsChannelData teamsChannelData;
                 return Task.FromResult(
@@ -553,8 +526,8 @@ namespace Microsoft.Teams.AI
                     && string.Equals(turnContext.Activity.ChannelId, Channels.Msteams)
                     && (teamsChannelData = turnContext.Activity.GetChannelData<TeamsChannelData>()) != null
                     && string.Equals(teamsChannelData.EventType, "softDeleteMessage"));
-            };
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            }
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -566,13 +539,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnMessageReactionsAdded(RouteHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            static Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.MessageReaction, StringComparison.OrdinalIgnoreCase)
                 && context.Activity?.ReactionsAdded != null
                 && context.Activity.ReactionsAdded.Count > 0
             );
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            }
+
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -584,13 +561,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnMessageReactionsRemoved(RouteHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            static Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.MessageReaction, StringComparison.OrdinalIgnoreCase)
                 && context.Activity?.ReactionsRemoved != null
                 && context.Activity.ReactionsRemoved.Count > 0
             );
-            AddRoute(routeSelector, handler, isInvokeRoute: false);
+            }
+
+            this.AddRoute(routeSelector, handler, isInvokeRoute: false);
             return this;
         }
 
@@ -602,18 +583,22 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnTeamsReadReceipt(ReadReceiptHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Event, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.ChannelId, Channels.Msteams)
                 && string.Equals(context.Activity?.Name, "application/vnd.microsoft.readReceipt")
             );
-            RouteHandler<TState> routeHandler = async (ITurnContext turnContext, TState turnState, CancellationToken cancellationToken) =>
+            }
+
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 ReadReceiptInfo readReceiptInfo = ActivityUtilities.GetTypedValue<ReadReceiptInfo>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, readReceiptInfo, cancellationToken);
-            };
-            AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            }
+            this.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
             return this;
         }
 
@@ -625,11 +610,15 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnConfigFetch(ConfigHandlerAsync<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) => Task.FromResult(
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(
                 string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(turnContext.Activity.Name, CONFIG_FETCH_INVOKE_NAME)
                 && string.Equals(turnContext.Activity.ChannelId, Channels.Msteams));
-            RouteHandler<TState> routeHandler = async (ITurnContext turnContext, TState turnState, CancellationToken cancellationToken) =>
+            }
+
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 ConfigResponseBase result = await handler(turnContext, turnState, turnContext.Activity.Value, cancellationToken);
 
@@ -639,8 +628,8 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity(result);
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
-            AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            }
+            this.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this;
         }
 
@@ -652,11 +641,15 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnConfigSubmit(ConfigHandlerAsync<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) => Task.FromResult(
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(
                 string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(turnContext.Activity.Name, CONFIG_SUBMIT_INVOKE_NAME)
                 && string.Equals(turnContext.Activity.ChannelId, Channels.Msteams));
-            RouteHandler<TState> routeHandler = async (ITurnContext turnContext, TState turnState, CancellationToken cancellationToken) =>
+            }
+
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 ConfigResponseBase result = await handler(turnContext, turnState, turnContext.Activity.Value, cancellationToken);
 
@@ -666,8 +659,8 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity(result);
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
-            AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            }
+            this.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this;
         }
 
@@ -677,7 +670,9 @@ namespace Microsoft.Teams.AI
         /// <param name="handler">Function to call when the route is triggered.</param>
         /// <returns>The application instance for chaining purposes.</returns>
         public Application<TState> OnFileConsentAccept(FileConsentHandler<TState> handler)
-            => OnFileConsent(handler, "accept");
+        {
+            return this.OnFileConsent(handler, "accept");
+        }
 
         /// <summary>
         /// Handles when a file consent card is declined by the user.
@@ -685,12 +680,14 @@ namespace Microsoft.Teams.AI
         /// <param name="handler">Function to call when the route is triggered.</param>
         /// <returns>The application instance for chaining purposes.</returns>
         public Application<TState> OnFileConsentDecline(FileConsentHandler<TState> handler)
-            => OnFileConsent(handler, "decline");
+        {
+            return this.OnFileConsent(handler, "decline");
+        }
 
         private Application<TState> OnFileConsent(FileConsentHandler<TState> handler, string fileConsentAction)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) =>
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
             {
                 FileConsentCardResponse? fileConsentCardResponse;
                 return Task.FromResult
@@ -700,8 +697,8 @@ namespace Microsoft.Teams.AI
                     && (fileConsentCardResponse = ActivityUtilities.GetTypedValue<FileConsentCardResponse>(context.Activity!)) != null
                     && string.Equals(fileConsentCardResponse.Action, fileConsentAction)
                 );
-            };
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            }
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 FileConsentCardResponse fileConsentCardResponse = ActivityUtilities.GetTypedValue<FileConsentCardResponse>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, fileConsentCardResponse, cancellationToken);
@@ -712,8 +709,8 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity();
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
-            AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            }
+            this.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this;
         }
 
@@ -725,12 +722,16 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnO365ConnectorCardAction(O365ConnectorCardActionHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(ITurnContext context, CancellationToken _)
+            {
+                return Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.Name, "actionableMessage/executeAction")
             );
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            }
+
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 O365ConnectorCardActionQuery query = ActivityUtilities.GetTypedValue<O365ConnectorCardActionQuery>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, query, cancellationToken);
@@ -741,8 +742,8 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity();
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
-            AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            }
+            this.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this;
         }
 
@@ -760,7 +761,7 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnBeforeTurn(TurnEventHandlerAsync<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            _beforeTurn.Enqueue(handler);
+            this._beforeTurn.Enqueue(handler);
             return this;
         }
 
@@ -775,7 +776,7 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnAfterTurn(TurnEventHandlerAsync<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            _afterTurn.Enqueue(handler);
+            this._afterTurn.Enqueue(handler);
             return this;
         }
 
@@ -804,7 +805,7 @@ namespace Microsoft.Teams.AI
                 throw new ArgumentException($"{nameof(turnContext)}.Activity must have non-null Type.");
             }
 
-            await _StartLongRunningCall(turnContext, _OnTurnAsync, cancellationToken);
+            await this._StartLongRunningCall(turnContext, this._OnTurnAsync, cancellationToken);
         }
 
         // TODO: Make TypingTimer thread-safe and work for each turn
@@ -825,14 +826,14 @@ namespace Microsoft.Teams.AI
                 return;
             }
 
-            if (_typingTimer == null)
+            if (this._typingTimer == null)
             {
-                _typingTimer = new TypingTimer(_typingTimerDelay);
+                this._typingTimer = new TypingTimer(this._typingTimerDelay);
             }
 
-            if (_typingTimer.IsRunning() == false)
+            if (this._typingTimer.IsRunning() == false)
             {
-                _typingTimer.Start(turnContext);
+                this._typingTimer.Start(turnContext);
             }
 
         }
@@ -845,8 +846,8 @@ namespace Microsoft.Teams.AI
         /// </remarks>
         public void StopTypingTimer()
         {
-            _typingTimer?.Dispose();
-            _typingTimer = null;
+            this._typingTimer?.Dispose();
+            this._typingTimer = null;
         }
 
         /// <summary>
@@ -857,26 +858,26 @@ namespace Microsoft.Teams.AI
             try
             {
                 // Start typing timer if configured
-                if (Options.StartTypingTimer)
+                if (this.Options.StartTypingTimer)
                 {
-                    StartTypingTimer(turnContext);
+                    this.StartTypingTimer(turnContext);
                 };
 
                 // Remove @mentions
-                if (Options.RemoveRecipientMention && ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase))
+                if (this.Options.RemoveRecipientMention && ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase))
                 {
                     turnContext.Activity.Text = turnContext.Activity.RemoveRecipientMention();
                 }
 
                 // Load turn state
-                TState turnState = Options.TurnStateFactory!();
-                IStorage? storage = Options.Storage;
+                TState turnState = this.Options.TurnStateFactory!();
+                IStorage? storage = this.Options.Storage;
 
                 await turnState!.LoadStateAsync(storage, turnContext);
 
                 // If user is in sign in flow, return the authentication setting name
                 string? settingName = AuthUtilities.UserInSignInFlow(turnState);
-                bool shouldStartSignIn = _startSignIn != null && await _startSignIn(turnContext, cancellationToken);
+                bool shouldStartSignIn = this._startSignIn != null && await this._startSignIn(turnContext, cancellationToken);
 
                 // Sign the user in
                 if (this._authentication != null && (shouldStartSignIn || settingName != null))
@@ -908,7 +909,7 @@ namespace Microsoft.Teams.AI
                 }
 
                 // Call before turn handler
-                foreach (TurnEventHandlerAsync<TState> beforeTurnHandler in _beforeTurn)
+                foreach (TurnEventHandlerAsync<TState> beforeTurnHandler in this._beforeTurn)
                 {
                     if (!await beforeTurnHandler(turnContext, turnState, cancellationToken))
                     {
@@ -927,7 +928,7 @@ namespace Microsoft.Teams.AI
                 // Invoke Activities from Teams need to be responded to in less than 5 seconds.
                 if (ActivityTypes.Invoke.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase))
                 {
-                    foreach (Route<TState> route in _invokeRoutes)
+                    foreach (Route<TState> route in this._invokeRoutes)
                     {
                         if (await route.Selector(turnContext, cancellationToken))
                         {
@@ -941,7 +942,7 @@ namespace Microsoft.Teams.AI
                 // All other ActivityTypes and any unhandled Invokes are run through the remaining routes.
                 if (!eventHandlerCalled)
                 {
-                    foreach (Route<TState> route in _routes)
+                    foreach (Route<TState> route in this._routes)
                     {
                         if (await route.Selector(turnContext, cancellationToken))
                         {
@@ -952,14 +953,14 @@ namespace Microsoft.Teams.AI
                     }
                 }
 
-                if (!eventHandlerCalled && _ai != null && ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase) && turnContext.Activity.Text != null)
+                if (!eventHandlerCalled && this._ai != null && ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase) && turnContext.Activity.Text != null)
                 {
                     // Begin a new chain of AI calls
-                    await _ai.RunAsync(turnContext, turnState);
+                    await this._ai.RunAsync(turnContext, turnState);
                 }
 
                 // Call after turn handler
-                foreach (TurnEventHandlerAsync<TState> afterTurnHandler in _afterTurn)
+                foreach (TurnEventHandlerAsync<TState> afterTurnHandler in this._afterTurn)
                 {
                     if (!await afterTurnHandler(turnContext, turnState, cancellationToken))
                     {
@@ -972,7 +973,7 @@ namespace Microsoft.Teams.AI
             finally
             {
                 // Stop the timer if configured
-                StopTypingTimer();
+                this.StopTypingTimer();
             }
         }
 
@@ -993,7 +994,7 @@ namespace Microsoft.Teams.AI
         /// <exception cref="TeamsAIException"></exception>
         public async Task<string?> GetTokenOrStartSignInAsync(ITurnContext turnContext, TState turnState, string settingName, CancellationToken cancellationToken = default)
         {
-            string? token = await Authentication.Get(settingName).IsUserSignedInAsync(turnContext, cancellationToken);
+            string? token = await this.Authentication.Get(settingName).IsUserSignedInAsync(turnContext, cancellationToken);
 
             if (token != null)
             {
@@ -1013,7 +1014,7 @@ namespace Microsoft.Teams.AI
                 throw new TeamsAIException("Invalid sign in flow state. Cannot start sign in when already started");
             }
 
-            SignInResponse response = await Authentication.SignUserInAsync(turnContext, turnState, settingName);
+            SignInResponse response = await this.Authentication.SignUserInAsync(turnContext, turnState, settingName);
 
             if (response.Status == SignInStatus.Error)
             {
@@ -1046,14 +1047,9 @@ namespace Microsoft.Teams.AI
         /// <returns>A task that represents the work queued to execute.</returns>
         private Task _StartLongRunningCall(ITurnContext turnContext, Func<ITurnContext, CancellationToken, Task> handler, CancellationToken cancellationToken = default)
         {
-            if (ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase) && Options.LongRunningMessages)
-            {
-                return Options.Adapter!.ContinueConversationAsync(Options.BotAppId, turnContext.Activity, (context, ct) => handler(context, ct), cancellationToken);
-            }
-            else
-            {
-                return handler(turnContext, cancellationToken);
-            }
+            return ActivityTypes.Message.Equals(turnContext.Activity.Type, StringComparison.OrdinalIgnoreCase) && this.Options.LongRunningMessages
+                ? this.Options.Adapter!.ContinueConversationAsync(this.Options.BotAppId, turnContext.Activity, (context, ct) => handler(context, ct), cancellationToken)
+                : handler(turnContext, cancellationToken);
         }
     }
 }

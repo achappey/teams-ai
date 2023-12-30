@@ -114,10 +114,10 @@ namespace Microsoft.Teams.AI.AI.Prompts.Sections
                 return new("");
             }
 
-            string text = string.Join(this.Separator, rendered.Output.Select(m => this.GetMessageText(m)));
+            string text = string.Join(this.Separator, rendered.Output.Select(this.GetMessageText));
             int prefixLength = tokenizer.Encode(this.Prefix).Count;
             int separatorLength = tokenizer.Encode(this.Separator).Count;
-            int length = prefixLength + rendered.Length + (rendered.Output.Count - 1) * separatorLength;
+            int length = prefixLength + rendered.Length + ((rendered.Output.Count - 1) * separatorLength);
 
             text = this.Prefix + text;
 

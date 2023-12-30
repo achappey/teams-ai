@@ -314,12 +314,14 @@ namespace Microsoft.Teams.AI.AI.Clients
                 this.AddOutputToHistory(fork, $"{this.Options.HistoryVariable}-repair", response.Message);
             }
 
-            PromptTemplate repairTemplate = new(this.Options.Template);
-            repairTemplate.Prompt = new(new()
+            PromptTemplate repairTemplate = new(this.Options.Template)
+            {
+                Prompt = new(new()
             {
                 this.Options.Template.Prompt,
                 new ConversationHistorySection($"{this.Options.HistoryVariable}-repair")
-            });
+            })
+            };
 
             if (this.Options.LogRepairs)
             {
@@ -361,16 +363,13 @@ namespace Microsoft.Teams.AI.AI.Clients
 
             remainingAttempts--;
 
-            if (remainingAttempts <= 0)
-            {
-                return new()
+            return remainingAttempts <= 0
+                ? new()
                 {
                     Status = PromptResponseStatus.InvalidResponse,
                     Error = new(feedback ?? "The response was invalid. Try another strategy.")
-                };
-            }
-
-            return await this.RepairResponseAsync(context, fork, functions, repairResponse, repairValidation, remainingAttempts, cancellationToken);
+                }
+                : await this.RepairResponseAsync(context, fork, functions, repairResponse, repairValidation, remainingAttempts, cancellationToken);
         }
     }
 }

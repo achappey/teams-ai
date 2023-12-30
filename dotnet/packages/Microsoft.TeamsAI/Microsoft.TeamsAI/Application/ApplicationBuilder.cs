@@ -2,7 +2,6 @@
 using Microsoft.Teams.AI.AI;
 using Microsoft.Teams.AI.State;
 using Microsoft.Extensions.Logging;
-using Microsoft.AspNetCore.Authentication;
 
 namespace Microsoft.Teams.AI
 {
@@ -32,9 +31,9 @@ namespace Microsoft.Teams.AI
                 throw new ArgumentException("The ApplicationOptions.LongRunningMessages property is unavailable because botAppId cannot be null or undefined.");
             }
 
-            Options.LongRunningMessages = true;
-            Options.Adapter = adapter;
-            Options.BotAppId = botAppId;
+            this.Options.LongRunningMessages = true;
+            this.Options.Adapter = adapter;
+            this.Options.BotAppId = botAppId;
             return this;
         }
 
@@ -45,7 +44,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithStorage(IStorage storage)
         {
-            Options.Storage = storage;
+            this.Options.Storage = storage;
             return this;
         }
 
@@ -56,7 +55,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithAIOptions(AIOptions<TState> aiOptions)
         {
-            Options.AI = aiOptions;
+            this.Options.AI = aiOptions;
             return this;
         }
 
@@ -67,7 +66,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithTurnStateFactory(Func<TState> turnStateFactory)
         {
-            Options.TurnStateFactory = turnStateFactory;
+            this.Options.TurnStateFactory = turnStateFactory;
             return this;
         }
 
@@ -78,7 +77,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithLoggerFactory(ILoggerFactory loggerFactory)
         {
-            Options.LoggerFactory = loggerFactory;
+            this.Options.LoggerFactory = loggerFactory;
             return this;
         }
 
@@ -89,7 +88,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithAdaptiveCardOptions(AdaptiveCardsOptions adaptiveCardOptions)
         {
-            Options.AdaptiveCards = adaptiveCardOptions;
+            this.Options.AdaptiveCards = adaptiveCardOptions;
             return this;
         }
 
@@ -100,7 +99,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithTaskModuleOptions(TaskModulesOptions taskModulesOptions)
         {
-            Options.TaskModules = taskModulesOptions;
+            this.Options.TaskModules = taskModulesOptions;
             return this;
         }
 
@@ -112,7 +111,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> SetRemoveRecipientMention(bool removeRecipientMention)
         {
-            Options.RemoveRecipientMention = removeRecipientMention;
+            this.Options.RemoveRecipientMention = removeRecipientMention;
             return this;
         }
 
@@ -124,7 +123,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> SetStartTypingTimer(bool startTypingTimer)
         {
-            Options.StartTypingTimer = startTypingTimer;
+            this.Options.StartTypingTimer = startTypingTimer;
             return this;
         }
 
@@ -136,8 +135,8 @@ namespace Microsoft.Teams.AI
         /// <returns>The ApplicationBuilder instance.</returns>
         public ApplicationBuilder<TState> WithAuthentication(BotAdapter adapter, AuthenticationOptions<TState> authenticationOptions)
         {
-            Options.Adapter = adapter;
-            Options.Authentication = authenticationOptions;
+            this.Options.Adapter = adapter;
+            this.Options.Authentication = authenticationOptions;
             return this;
         }
 
@@ -147,7 +146,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The Application instance.</returns>
         public Application<TState> Build()
         {
-            return new Application<TState>(Options);
+            return new Application<TState>(this.Options);
         }
     }
 }

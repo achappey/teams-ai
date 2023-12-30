@@ -193,12 +193,12 @@ namespace Microsoft.Teams.AI.AI.Augmentations
         /// <param name="actions">Actions</param>
         public MonologueAugmentation(List<ChatCompletionAction> actions)
         {
-            List<ChatCompletionAction> _actions = new(actions);
-
-            _actions.Add(new("SAY")
+            List<ChatCompletionAction> _actions = new(actions)
             {
-                Description = "use to ask the user a question or say something",
-                Parameters = new JsonSchemaBuilder()
+                new("SAY")
+                {
+                    Description = "use to ask the user a question or say something",
+                    Parameters = new JsonSchemaBuilder()
                     .Type(SchemaValueType.Object)
                     .Properties(
                         (
@@ -210,7 +210,8 @@ namespace Microsoft.Teams.AI.AI.Augmentations
                     )
                     .Required(new string[] { "text" })
                     .Build()
-            });
+                }
+            };
 
             this._section = new(_actions, string.Join("\n", new string[]
             {
@@ -325,16 +326,13 @@ namespace Microsoft.Teams.AI.AI.Augmentations
 
             Validation valid = await this._actionValidator.ValidateResponseAsync(context, memory, tokenizer, promptResponse, remainingAttempts, cancellationToken);
 
-            if (!valid.Valid)
-            {
-                return new()
+            return !valid.Valid
+                ? new()
                 {
                     Valid = false,
                     Feedback = valid.Feedback
-                };
-            }
-
-            return new()
+                }
+                : new()
             {
                 Valid = true,
                 Value = JsonSerializer.Serialize(monologue)

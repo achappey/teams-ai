@@ -123,9 +123,7 @@ namespace Microsoft.Teams.AI.AI.Augmentations
 
         private async Task<Validation?> _ValidateDoCommandAsync(ITurnContext context, IMemory memory, ITokenizer tokenizer, int remainingAttempts, IPredictedCommand command, CancellationToken cancellationToken = default)
         {
-            PredictedDoCommand? doCommand = command as PredictedDoCommand;
-
-            if (doCommand == null)
+            if (command is not PredictedDoCommand doCommand)
             {
                 return new()
                 {
@@ -146,32 +144,24 @@ namespace Microsoft.Teams.AI.AI.Augmentations
 
             Validation valid = await this._actionValidator.ValidateResponseAsync(context, memory, tokenizer, promptResponse, remainingAttempts, cancellationToken);
 
-            if (!valid.Valid)
-            {
-                return new()
+            return !valid.Valid
+                ? new()
                 {
                     Valid = false,
                     Feedback = valid.Feedback
-                };
-            }
-
-            return null;
+                }
+                : null;
         }
 
         private async Task<Validation?> _ValidateSayCommandAsync(IPredictedCommand command, CancellationToken cancellationToken = default)
         {
-            PredictedSayCommand? sayCommand = command as PredictedSayCommand;
-
-            if (sayCommand == null)
-            {
-                return new()
+            return command is not PredictedSayCommand
+                ? new()
                 {
                     Valid = false,
                     Feedback = $"One or more plan commands is invalid"
-                };
-            }
-
-            return await Task.FromResult<Validation?>(null);
+                }
+                : await Task.FromResult<Validation?>(null);
         }
     }
 }

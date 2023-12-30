@@ -40,19 +40,13 @@ namespace Microsoft.Teams.AI
         /// <param name="storage">The storage to save turn state</param>
         public BotAuthenticationBase(Application<TState> app, string name, IStorage? storage = null)
         {
-            _name = name;
-            _storage = storage ?? new MemoryStorage();
+            this._name = name;
+            this._storage = storage ?? new MemoryStorage();
 
             // Add application routes to handle OAuth callbacks
-            app.AddRoute(this.VerifyStateRouteSelector, async (context, state, cancellationToken) =>
-            {
-                await this.HandleSignInActivity(context, state, cancellationToken);
-            }, true);
+            app.AddRoute(this.VerifyStateRouteSelector, this.HandleSignInActivity, true);
 
-            app.AddRoute(this.TokenExchangeRouteSelector, async (context, state, cancellationToken) =>
-            {
-                await this.HandleSignInActivity(context, state, cancellationToken);
-            }, true);
+            app.AddRoute(this.TokenExchangeRouteSelector, this.HandleSignInActivity, true);
         }
 
         /// <summary>
@@ -65,11 +59,11 @@ namespace Microsoft.Teams.AI
         public async Task<string?> AuthenticateAsync(ITurnContext context, TState state, CancellationToken cancellationToken = default)
         {
             // Get property names to use
-            string userAuthStatePropertyName = GetUserAuthStatePropertyName(context);
-            string userDialogStatePropertyName = GetUserDialogStatePropertyName(context);
+            string userAuthStatePropertyName = this.GetUserAuthStatePropertyName(context);
+            string userDialogStatePropertyName = this.GetUserDialogStatePropertyName(context);
 
             // Save message if not signed in
-            if (!TryGetUserAuthState(context, state, out _))
+            if (!this.TryGetUserAuthState(context, state, out _))
             {
                 state.Conversation.Add(userAuthStatePropertyName, new Dictionary<string, string>()
                 {
@@ -77,18 +71,17 @@ namespace Microsoft.Teams.AI
                 });
             }
 
-            DialogTurnResult result = await RunDialog(context, state, userDialogStatePropertyName, cancellationToken);
+            DialogTurnResult result = await this.RunDialog(context, state, userDialogStatePropertyName, cancellationToken);
             if (result.Status == DialogTurnStatus.Complete)
             {
                 // Delete user auth state
-                DeleteAuthFlowState(context, state);
-                TokenResponse? tokenResponse = result.Result as TokenResponse;
-                if (tokenResponse == null)
+                this.DeleteAuthFlowState(context, state);
+                if (result.Result is not TokenResponse tokenResponse)
                 {
                     // Completed dialog without a token.
                     // This could mean the user declined the consent prompt in the previous turn.
                     // Retry authentication flow again.
-                    return await AuthenticateAsync(context, state, cancellationToken);
+                    return await this.AuthenticateAsync(context, state, cancellationToken);
                 }
                 else
                 {
@@ -122,45 +115,32 @@ namespace Microsoft.Teams.AI
         {
             try
             {
-                string userDialogStatePropertyName = GetUserDialogStatePropertyName(context);
-                DialogTurnResult result = await ContinueDialog(context, state, userDialogStatePropertyName, cancellationToken);
+                string userDialogStatePropertyName = this.GetUserDialogStatePropertyName(context);
+                DialogTurnResult result = await this.ContinueDialog(context, state, userDialogStatePropertyName, cancellationToken);
 
                 if (result.Status == DialogTurnStatus.Complete)
                 {
                     // OAuthPrompt dialog should have sent an invoke response already.
-                    TokenResponse? tokenResponse = result.Result as TokenResponse;
-                    if (tokenResponse != null)
+                    if (result.Result is TokenResponse tokenResponse)
                     {
                         // Successful sign in
-                        AuthUtilities.SetTokenInState(state, _name, tokenResponse.Token);
+                        AuthUtilities.SetTokenInState(state, this._name, tokenResponse.Token);
 
-                        if (TryGetUserAuthState(context, state, out Dictionary<string, string> userAuthState))
-                        {
-                            if (userAuthState.ContainsKey("message"))
-                            {
-                                context.Activity.Text = userAuthState["message"];
-                            }
-                            else
-                            {
-                                context.Activity.Text = "";
-                            }
-                        }
-                        else
-                        {
-                            context.Activity.Text = "";
-                        }
+                        context.Activity.Text = this.TryGetUserAuthState(context, state, out Dictionary<string, string> userAuthState)
+                            ? userAuthState.ContainsKey("message") ? userAuthState["message"] : ""
+                            : "";
 
-                        if (_userSignInSuccessHandler != null)
+                        if (this._userSignInSuccessHandler != null)
                         {
-                            await _userSignInSuccessHandler(context, state);
+                            await this._userSignInSuccessHandler(context, state);
                         }
                     }
                     else
                     {
                         // Failed sign in
-                        if (_userSignInFailureHandler != null)
+                        if (this._userSignInFailureHandler != null)
                         {
-                            await _userSignInFailureHandler(context, state, new AuthException("Authentication flow completed without a token.", AuthExceptionReason.CompletionWithoutToken));
+                            await this._userSignInFailureHandler(context, state, new AuthException("Authentication flow completed without a token.", AuthExceptionReason.CompletionWithoutToken));
                         }
                     }
                 }
@@ -169,9 +149,9 @@ namespace Microsoft.Teams.AI
             {
                 string message = $"Unexpected error encountered while signing in: {ex.Message}.\nIncoming activity details: type: {context.Activity.Type}, name: {context.Activity.Name}";
 
-                if (_userSignInFailureHandler != null)
+                if (this._userSignInFailureHandler != null)
                 {
-                    await _userSignInFailureHandler(context, state, new AuthException(message));
+                    await this._userSignInFailureHandler(context, state, new AuthException(message));
                 }
             }
         }
@@ -182,7 +162,7 @@ namespace Microsoft.Teams.AI
         /// <param name="handler">The handler function to call when the user has successfully signed in</param>
         public void OnUserSignInSuccess(Func<ITurnContext, TState, Task> handler)
         {
-            _userSignInSuccessHandler = handler;
+            this._userSignInSuccessHandler = handler;
         }
 
         /// <summary>
@@ -191,7 +171,7 @@ namespace Microsoft.Teams.AI
         /// <param name="handler">The handler function to call when the user failed to signed in</param>
         public void OnUserSignInFailure(Func<ITurnContext, TState, AuthException, Task> handler)
         {
-            _userSignInFailureHandler = handler;
+            this._userSignInFailureHandler = handler;
         }
 
         /// <summary>
@@ -220,31 +200,31 @@ namespace Microsoft.Teams.AI
 
         private string GetUserAuthStatePropertyName(ITurnContext context)
         {
-            return $"__{context.Activity.From.Id}:{_name}:Bot:AuthState__";
+            return $"__{context.Activity.From.Id}:{this._name}:Bot:AuthState__";
         }
 
         private string GetUserDialogStatePropertyName(ITurnContext context)
         {
-            return $"__{context.Activity.From.Id}:{_name}:DialogState__";
+            return $"__{context.Activity.From.Id}:{this._name}:DialogState__";
         }
 
         private bool TryGetUserAuthState(ITurnContext context, TState state, out Dictionary<string, string> authState)
         {
-            string propertyName = GetUserAuthStatePropertyName(context);
+            string propertyName = this.GetUserAuthStatePropertyName(context);
             return state.Conversation.TryGetValue(propertyName, out authState);
         }
 
         public void DeleteAuthFlowState(ITurnContext context, TState state)
         {
             // Delete user auth state
-            string userAuthStatePropertyName = GetUserAuthStatePropertyName(context);
+            string userAuthStatePropertyName = this.GetUserAuthStatePropertyName(context);
             if (state.Conversation.ContainsKey(userAuthStatePropertyName))
             {
                 state.Conversation.Remove(userAuthStatePropertyName);
             }
 
             // Delete user dialog state
-            string userDialogStatePropertyName = GetUserDialogStatePropertyName(context);
+            string userDialogStatePropertyName = this.GetUserDialogStatePropertyName(context);
             if (state.Conversation.ContainsKey(userDialogStatePropertyName))
             {
                 state.Conversation.Remove(userDialogStatePropertyName);

@@ -21,7 +21,7 @@ namespace Microsoft.Teams.AI.AI.Models
         /// <exception cref="ArgumentNullException"><paramref name="value"/> is null.</exception>
         public ChatRole(string value)
         {
-            Value = value ?? throw new ArgumentNullException(nameof(value));
+            this.Value = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         private const string SystemValue = "system";
@@ -61,7 +61,10 @@ namespace Microsoft.Teams.AI.AI.Models
         /// <param name="left">left</param>
         /// <param name="right">right</param>
         /// <returns>equality</returns>
-        public static bool operator ==(ChatRole left, ChatRole right) => left.Equals(right);
+        public static bool operator ==(ChatRole left, ChatRole right)
+        {
+            return left.Equals(right);
+        }
 
         /// <summary>
         /// Determines if two <see cref="ChatRole"/> values are not the same.
@@ -69,24 +72,44 @@ namespace Microsoft.Teams.AI.AI.Models
         /// <param name="left">left</param>
         /// <param name="right">right</param>
         /// <returns>equality</returns>
-        public static bool operator !=(ChatRole left, ChatRole right) => !left.Equals(right);
+        public static bool operator !=(ChatRole left, ChatRole right)
+        {
+            return !left.Equals(right);
+        }
 
         /// <summary>
         /// Converts a string to a <see cref="ChatRole"/>.
         /// </summary>
         /// <param name="value">value</param>
-        public static implicit operator ChatRole(string value) => new(value);
+        public static implicit operator ChatRole(string value)
+        {
+            return new(value);
+        }
 
         /// <inheritdoc />
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override bool Equals(object obj) => obj is ChatRole other && Equals(other);
+        public override bool Equals(object obj)
+        {
+            return obj is ChatRole other && this.Equals(other);
+        }
+
         /// <inheritdoc />
-        public bool Equals(ChatRole other) => string.Equals(Value, other.Value, StringComparison.InvariantCultureIgnoreCase);
+        public bool Equals(ChatRole other)
+        {
+            return string.Equals(this.Value, other.Value, StringComparison.InvariantCultureIgnoreCase);
+        }
 
         /// <inheritdoc />
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public override int GetHashCode() => Value?.GetHashCode() ?? 0;
+        public override int GetHashCode()
+        {
+            return this.Value?.GetHashCode() ?? 0;
+        }
+
         /// <inheritdoc />
-        public override string ToString() => Value;
+        public override string ToString()
+        {
+            return this.Value;
+        }
     }
 }

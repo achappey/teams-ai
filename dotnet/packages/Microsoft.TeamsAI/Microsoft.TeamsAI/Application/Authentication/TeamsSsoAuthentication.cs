@@ -12,9 +12,9 @@ namespace Microsoft.Teams.AI
     public class TeamsSsoAuthentication<TState> : IAuthentication<TState>
         where TState : TurnState, new()
     {
-        private TeamsSsoBotAuthentication<TState>? _botAuth;
-        private TeamsSsoMessageExtensionsAuthentication? _messageExtensionsAuth;
-        private TeamsSsoSettings _settings;
+        private readonly TeamsSsoBotAuthentication<TState>? _botAuth;
+        private readonly TeamsSsoMessageExtensionsAuthentication? _messageExtensionsAuth;
+        private readonly TeamsSsoSettings _settings;
 
         /// <summary>
         /// Initialize instance for current class
@@ -25,9 +25,9 @@ namespace Microsoft.Teams.AI
         /// <param name="storage">The storage to use.</param>
         public TeamsSsoAuthentication(Application<TState> app, string name, TeamsSsoSettings settings, IStorage? storage = null)
         {
-            _settings = settings;
-            _botAuth = new TeamsSsoBotAuthentication<TState>(app, name, _settings, storage);
-            _messageExtensionsAuth = new TeamsSsoMessageExtensionsAuthentication(_settings);
+            this._settings = settings;
+            this._botAuth = new TeamsSsoBotAuthentication<TState>(app, name, this._settings, storage);
+            this._messageExtensionsAuth = new TeamsSsoMessageExtensionsAuthentication(this._settings);
         }
 
         /// <summary>
@@ -39,23 +39,14 @@ namespace Microsoft.Teams.AI
         /// <returns>The sign in response</returns>
         public async Task<string?> SignInUserAsync(ITurnContext context, TState state, CancellationToken cancellationToken = default)
         {
-            string token = await _TryGetUserToken(context);
-            if (!string.IsNullOrEmpty(token))
-            {
-                return token;
-            }
-
-            if ((_botAuth != null && _botAuth.IsValidActivity(context)))
-            {
-                return await _botAuth.AuthenticateAsync(context, state);
-            }
-
-            if ((_messageExtensionsAuth != null && _messageExtensionsAuth.IsValidActivity(context)))
-            {
-                return await _messageExtensionsAuth.AuthenticateAsync(context);
-            }
-
-            throw new AuthException("Incoming activity is not a valid activity to initiate authentication flow.", AuthExceptionReason.InvalidActivity);
+            string token = await this._TryGetUserToken(context);
+            return !string.IsNullOrEmpty(token)
+                ? token
+                : this._botAuth != null && this._botAuth.IsValidActivity(context)
+                ? await this._botAuth.AuthenticateAsync(context, state)
+                : this._messageExtensionsAuth != null && this._messageExtensionsAuth.IsValidActivity(context)
+                ? await this._messageExtensionsAuth.AuthenticateAsync(context)
+                : throw new AuthException("Incoming activity is not a valid activity to initiate authentication flow.", AuthExceptionReason.InvalidActivity);
         }
 
         /// <summary>
@@ -68,8 +59,7 @@ namespace Microsoft.Teams.AI
         {
             string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
 
-            ILongRunningWebApi? oboCca = _settings.MSAL as ILongRunningWebApi;
-            if (oboCca != null)
+            if (this._settings.MSAL is ILongRunningWebApi oboCca)
             {
                 await oboCca.StopLongRunningProcessInWebApiAsync(homeAccountId, cancellationToken);
             }
@@ -82,10 +72,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The class itself for chaining purpose</returns>
         public IAuthentication<TState> OnUserSignInSuccess(Func<ITurnContext, TState, Task> handler)
         {
-            if (_botAuth != null)
-            {
-                _botAuth.OnUserSignInSuccess(handler);
-            }
+            this._botAuth?.OnUserSignInSuccess(handler);
             return this;
         }
 
@@ -96,10 +83,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The class itself for chaining purpose</returns>
         public IAuthentication<TState> OnUserSignInFailure(Func<ITurnContext, TState, AuthException, Task> handler)
         {
-            if (_botAuth != null)
-            {
-                _botAuth.OnUserSignInFailure(handler);
-            }
+            this._botAuth?.OnUserSignInFailure(handler);
             return this;
         }
 
@@ -111,7 +95,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The token if the user is signed. Otherwise null.</returns>
         public async Task<string?> IsUserSignedInAsync(ITurnContext context, CancellationToken cancellationToken = default)
         {
-            string token = await _TryGetUserToken(context);
+            string token = await this._TryGetUserToken(context);
             return token == "" ? null : token;
         }
 
@@ -120,8 +104,8 @@ namespace Microsoft.Teams.AI
             string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
             try
             {
-                AuthenticationResult result = await ((ILongRunningWebApi)_settings.MSAL).AcquireTokenInLongRunningProcess(
-                    _settings.Scopes,
+                AuthenticationResult result = await ((ILongRunningWebApi)this._settings.MSAL).AcquireTokenInLongRunningProcess(
+                    this._settings.Scopes,
                             homeAccountId
                         ).ExecuteAsync();
                 return result.AccessToken;
