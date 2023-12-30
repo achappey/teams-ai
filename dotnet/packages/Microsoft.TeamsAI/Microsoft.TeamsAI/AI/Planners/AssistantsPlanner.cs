@@ -174,6 +174,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
 
         private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string lastMessageId, CancellationToken cancellationToken)
         {
+
+
             // Find the new messages
             IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, cancellationToken);
             List<Message> newMessages = new();
@@ -202,6 +204,26 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     {
                         plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
                     }
+
+                    foreach (TextAnnotation annotation in content.Text?.Annotations ?? new List<TextAnnotation>())
+                    {
+                        if (annotation.FileCitation != null && !string.IsNullOrEmpty(annotation.FileCitation.FileId))
+                        {
+                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FileCitation.FileId);
+
+                            plan.Commands.Add(new PredictedDoCommand(annotation.Type,
+                                new Dictionary<string, object?>() {
+                                    {"text", annotation.Text},
+                                    {"start_index", annotation.StartIndex},
+                                    {"end_index", annotation.EndIndex},
+                                    {"file_id", annotation.FileCitation?.FileId},
+                                    {"filename", file.Filename},
+                                    {"quote", annotation.FileCitation?.Quote}
+                                    }));
+                        }
+                    }
+
+
                 }
             }
             return plan;
@@ -272,13 +294,13 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             // Add the users input to the thread
             Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
             {
-                Content = state.Temp?.Input ?? string.Empty
+                Content = state.Temp?.Input ?? string.Empty,
             }, cancellationToken);
 
             // Create a new run
             Run run = await this._openAIClient.CreateRunAsync(threadId, new()
             {
-                AssistantId = this._options.AssistantId
+                AssistantId = this._options.AssistantId,
             }, cancellationToken);
 
             // Update state and wait for the run to complete

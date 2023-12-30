@@ -24,9 +24,9 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         private const string HttpUserAgent = "Microsoft Teams AI";
         private const string OpenAIModerationEndpoint = "https://api.openai.com/v1/moderations";
 
-        private HttpClient _httpClient;
-        private ILogger _logger;
-        private OpenAIClientOptions _options;
+        private readonly HttpClient _httpClient;
+        private readonly ILogger _logger;
+        private readonly OpenAIClientOptions _options;
         private static readonly JsonSerializerOptions _serializerOptions = new()
         {
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -40,9 +40,9 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         /// <param name="httpClient">Optional. The HTTP client instance.</param>
         public OpenAIClient(OpenAIClientOptions options, ILoggerFactory? loggerFactory = null, HttpClient? httpClient = null)
         {
-            _httpClient = httpClient ?? DefaultHttpClient.Instance;
-            _logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(OpenAIClient));
-            _options = options;
+            this._httpClient = httpClient ?? DefaultHttpClient.Instance;
+            this._logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(OpenAIClient));
+            this._options = options;
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync(OpenAIModerationEndpoint, content, null, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync(OpenAIModerationEndpoint, content, null, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 ModerationResponse result = JsonSerializer.Deserialize<ModerationResponse>(responseJson) ?? throw new SerializationException($"Failed to deserialize moderation result response json: {content}");
@@ -108,11 +108,11 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             {
                 request.Headers.Add("Accept", "application/json");
                 request.Headers.Add("User-Agent", HttpUserAgent);
-                request.Headers.Add("Authorization", $"Bearer {_options.ApiKey}");
+                request.Headers.Add("Authorization", $"Bearer {this._options.ApiKey}");
 
-                if (_options.Organization != null)
+                if (this._options.Organization != null)
                 {
-                    request.Headers.Add("OpenAI-Organization", _options.Organization);
+                    request.Headers.Add("OpenAI-Organization", this._options.Organization);
                 }
 
                 if (additionalHeaders != null)
@@ -123,10 +123,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     }
                 }
 
-                response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
 
-            _logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");
+            this._logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");
 
             // Throw an exception if not a success status code
             if (response.IsSuccessStatusCode)
@@ -153,11 +153,11 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             {
                 request.Headers.Add("Accept", "application/json");
                 request.Headers.Add("User-Agent", HttpUserAgent);
-                request.Headers.Add("Authorization", $"Bearer {_options.ApiKey}");
+                request.Headers.Add("Authorization", $"Bearer {this._options.ApiKey}");
 
-                if (_options.Organization != null)
+                if (this._options.Organization != null)
                 {
-                    request.Headers.Add("OpenAI-Organization", _options.Organization);
+                    request.Headers.Add("OpenAI-Organization", this._options.Organization);
                 }
 
                 if (additionalHeaders != null)
@@ -173,10 +173,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     request.Content = content;
                 }
 
-                response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             }
 
-            _logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");
+            this._logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");
 
             // Throw an exception if not a success status code
             if (response.IsSuccessStatusCode)

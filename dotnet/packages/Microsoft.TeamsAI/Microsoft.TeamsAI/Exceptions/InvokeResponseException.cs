@@ -26,8 +26,8 @@ namespace Microsoft.Teams.AI.Exceptions
         /// <param name="innerException">The inner exception. Default is null.</param>
         public InvokeResponseException(HttpStatusCode statusCode, object? body = null, Exception? innerException = null) : base("InvokeResponseException", innerException)
         {
-            StatusCode = statusCode;
-            Body = body;
+            this.StatusCode = statusCode;
+            this.Body = body;
         }
     }
 }

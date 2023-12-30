@@ -27,9 +27,9 @@ namespace Microsoft.Teams.AI.AI.Embeddings
         /// <exception cref="ArgumentException"></exception>
         public OpenAIEmbeddings(TOptions options, ILoggerFactory? loggerFactory = null)
         {
-            _options = options;
-            _client = _CreateOpenAIClient(options);
-            _logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(OpenAIEmbeddings<TState, TOptions>));
+            this._options = options;
+            this._client = this._CreateOpenAIClient(options);
+            this._logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(OpenAIEmbeddings<TState, TOptions>));
 
             if (options.LogRequests && loggerFactory == null)
             {
@@ -44,13 +44,11 @@ namespace Microsoft.Teams.AI.AI.Embeddings
             {
                 return new OpenAIClient(options.ApiKey);
             }
-            else if (options is AzureOpenAIEmbeddingsOptions)
-            {
-                return new OpenAIClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey));
-            }
             else
             {
-                throw new ArgumentException($"`{nameof(options)}` parameter must be of type `{nameof(OpenAIEmbeddingsOptions)}` or `{nameof(AzureOpenAIEmbeddingsOptions)}`");
+                return options is AzureOpenAIEmbeddingsOptions
+                    ? new OpenAIClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey))
+                    : throw new ArgumentException($"`{nameof(options)}` parameter must be of type `{nameof(OpenAIEmbeddingsOptions)}` or `{nameof(AzureOpenAIEmbeddingsOptions)}`");
             }
         }
 
@@ -59,25 +57,25 @@ namespace Microsoft.Teams.AI.AI.Embeddings
         {
             if (this._options.LogRequests)
             {
-                _logger?.LogInformation($"\nEmbeddings REQUEST: inputs={inputs}");
+                this._logger?.LogInformation($"\nEmbeddings REQUEST: inputs={inputs}");
             }
 
             EmbeddingsOptions embeddingsOptions = new()
             {
-                DeploymentName = _options.Model,
+                DeploymentName = this._options.Model,
                 Input = inputs,
             };
 
             try
             {
                 DateTime startTime = DateTime.Now;
-                Response<Azure.AI.OpenAI.Embeddings> response = await _client.GetEmbeddingsAsync(embeddingsOptions, cancellationToken);
+                Response<Azure.AI.OpenAI.Embeddings> response = await this._client.GetEmbeddingsAsync(embeddingsOptions, cancellationToken);
                 List<ReadOnlyMemory<float>> embeddingItems = response.Value.Data.OrderBy(item => item.Index).Select(item => item.Embedding).ToList();
 
                 if (this._options.LogRequests)
                 {
                     TimeSpan duration = DateTime.Now - startTime;
-                    _logger?.LogInformation($"\nEmbeddings SUCCEEDED: duration={duration.TotalSeconds} response={embeddingItems}");
+                    this._logger?.LogInformation($"\nEmbeddings SUCCEEDED: duration={duration.TotalSeconds} response={embeddingItems}");
                 }
 
                 return new EmbeddingsResponse

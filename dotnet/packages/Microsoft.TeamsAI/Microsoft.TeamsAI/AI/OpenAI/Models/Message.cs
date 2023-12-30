@@ -58,7 +58,34 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
         public string Value { get; set; } = string.Empty;
 
         [JsonPropertyName("annotations")]
-        public object? Annotations { get; set; }
+        public List<TextAnnotation>? Annotations { get; set; }
+    }
+
+    internal class TextAnnotation
+    {
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = string.Empty;
+
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = string.Empty;
+
+        [JsonPropertyName("start_index")]
+        public int? StartIndex { get; set; }
+
+        [JsonPropertyName("end_index")]
+        public int? EndIndex { get; set; }
+
+        [JsonPropertyName("file_citation")]
+        public FileCitation? FileCitation { get; set; }
+    }
+
+    internal class FileCitation
+    {
+        [JsonPropertyName("file_id")]
+        public string FileId { get; set; } = string.Empty;
+
+        [JsonPropertyName("quote")]
+        public string? Quote { get; set; }
     }
 
     internal class MessageCreateParams

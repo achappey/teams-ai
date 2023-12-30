@@ -54,7 +54,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(verb);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateActionExecuteSelector((string input) => string.Equals(verb, input));
-            return OnActionExecute(routeSelector, handler);
+            return this.OnActionExecute(routeSelector, handler);
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(verbPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateActionExecuteSelector((string input) => verbPattern.IsMatch(input));
-            return OnActionExecute(routeSelector, handler);
+            return this.OnActionExecute(routeSelector, handler);
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 AdaptiveCardInvokeValue? invokeValue;
                 if (!string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
@@ -96,9 +96,9 @@ namespace Microsoft.Teams.AI
                 AdaptiveCardInvokeResponse adaptiveCardInvokeResponse = await handler(turnContext, turnState, invokeValue.Action.Data, cancellationToken);
                 Activity activity = ActivityUtilities.CreateInvokeResponseActivity(adaptiveCardInvokeResponse);
                 await turnContext.SendActivityAsync(activity, cancellationToken);
-            };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            }
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -115,24 +115,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string verb in routeSelectors.Strings)
                 {
-                    OnActionExecute(verb, handler);
+                    this.OnActionExecute(verb, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex verbPattern in routeSelectors.Regexes)
                 {
-                    OnActionExecute(verbPattern, handler);
+                    this.OnActionExecute(verbPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnActionExecute(routeSelector, handler);
+                    this.OnActionExecute(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -162,9 +162,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verb);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.AdaptiveCards?.ActionSubmitFilter ?? DEFAULT_ACTION_SUBMIT_FILTER;
+            string filter = this._app.Options.AdaptiveCards?.ActionSubmitFilter ?? DEFAULT_ACTION_SUBMIT_FILTER;
             RouteSelectorAsync routeSelector = CreateActionSubmitSelector((string input) => string.Equals(verb, input), filter);
-            return OnActionSubmit(routeSelector, handler);
+            return this.OnActionSubmit(routeSelector, handler);
         }
 
         /// <summary>
@@ -194,9 +194,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verbPattern);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.AdaptiveCards?.ActionSubmitFilter ?? DEFAULT_ACTION_SUBMIT_FILTER;
+            string filter = this._app.Options.AdaptiveCards?.ActionSubmitFilter ?? DEFAULT_ACTION_SUBMIT_FILTER;
             RouteSelectorAsync routeSelector = CreateActionSubmitSelector((string input) => verbPattern.IsMatch(input), filter);
-            return OnActionSubmit(routeSelector, handler);
+            return this.OnActionSubmit(routeSelector, handler);
         }
 
         /// <summary>
@@ -226,7 +226,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 if (!string.Equals(turnContext.Activity.Type, ActivityTypes.Message, StringComparison.OrdinalIgnoreCase)
                     || !string.IsNullOrEmpty(turnContext.Activity.Text)
@@ -236,9 +236,9 @@ namespace Microsoft.Teams.AI
                 }
 
                 await handler(turnContext, turnState, turnContext.Activity.Value, cancellationToken);
-            };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
-            return _app;
+            }
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            return this._app;
         }
 
         /// <summary>
@@ -272,24 +272,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string verb in routeSelectors.Strings)
                 {
-                    OnActionSubmit(verb, handler);
+                    this.OnActionSubmit(verb, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex verbPattern in routeSelectors.Regexes)
                 {
-                    OnActionSubmit(verbPattern, handler);
+                    this.OnActionSubmit(verbPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnActionSubmit(routeSelector, handler);
+                    this.OnActionSubmit(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -303,7 +303,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(dataset);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateSearchSelector((string input) => string.Equals(dataset, input));
-            return OnSearch(routeSelector, handler);
+            return this.OnSearch(routeSelector, handler);
         }
 
         /// <summary>
@@ -317,7 +317,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(datasetPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateSearchSelector((string input) => datasetPattern.IsMatch(input));
-            return OnSearch(routeSelector, handler);
+            return this.OnSearch(routeSelector, handler);
         }
 
         /// <summary>
@@ -330,7 +330,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 AdaptiveCardSearchInvokeValue? searchInvokeValue;
                 if (!string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
@@ -359,9 +359,9 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity(searchInvokeResponse);
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            }
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -378,29 +378,29 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string verb in routeSelectors.Strings)
                 {
-                    OnSearch(verb, handler);
+                    this.OnSearch(verb, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex verbPattern in routeSelectors.Regexes)
                 {
-                    OnSearch(verbPattern, handler);
+                    this.OnSearch(verbPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnSearch(routeSelector, handler);
+                    this.OnSearch(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         private static RouteSelectorAsync CreateActionExecuteSelector(Func<string, bool> isMatch)
         {
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 AdaptiveCardInvokeValue? invokeValue;
                 return Task.FromResult(
@@ -410,13 +410,13 @@ namespace Microsoft.Teams.AI
                     && invokeValue.Action != null
                     && string.Equals(invokeValue.Action.Type, ACTION_EXECUTE_TYPE)
                     && isMatch(invokeValue.Action.Verb));
-            };
+            }
             return routeSelector;
         }
 
         private static RouteSelectorAsync CreateActionSubmitSelector(Func<string, bool> isMatch, string filter)
         {
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 JObject? obj;
                 return Task.FromResult(
@@ -427,13 +427,13 @@ namespace Microsoft.Teams.AI
                     && obj[filter] != null
                     && obj[filter]!.Type == JTokenType.String
                     && isMatch(obj[filter]!.Value<string>()!));
-            };
+            }
             return routeSelector;
         }
 
         private static RouteSelectorAsync CreateSearchSelector(Func<string, bool> isMatch)
         {
-            RouteSelectorAsync routeSelector = (turnContext, cancellationToken) =>
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 AdaptiveCardSearchInvokeValue? searchInvokeValue;
                 return Task.FromResult(
@@ -441,7 +441,7 @@ namespace Microsoft.Teams.AI
                     && string.Equals(turnContext.Activity.Name, SEARCH_INVOKE_NAME)
                     && (searchInvokeValue = ActivityUtilities.GetTypedValue<AdaptiveCardSearchInvokeValue>(turnContext.Activity)) != null
                     && isMatch(searchInvokeValue.Dataset!));
-            };
+            }
             return routeSelector;
         }
 

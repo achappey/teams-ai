@@ -46,7 +46,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The object for chaining purposes.</returns>
         public AuthenticationOptions<TState> AddAuthentication(string name, OAuthSettings oauthSettings)
         {
-            _authenticationSettings.Add(name, oauthSettings);
+            this._authenticationSettings.Add(name, oauthSettings);
             return this;
         }
 
@@ -58,7 +58,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The object for chaining purposes.</returns>
         public AuthenticationOptions<TState> AddAuthentication(string name, TeamsSsoSettings teamsSsoSettings)
         {
-            _authenticationSettings.Add(name, teamsSsoSettings);
+            this._authenticationSettings.Add(name, teamsSsoSettings);
             return this;
         }
 
@@ -67,7 +67,7 @@ namespace Microsoft.Teams.AI
         /// </summary>
         public AuthenticationOptions()
         {
-            _authenticationSettings = new Dictionary<string, object>();
+            this._authenticationSettings = new Dictionary<string, object>();
         }
     }
 }

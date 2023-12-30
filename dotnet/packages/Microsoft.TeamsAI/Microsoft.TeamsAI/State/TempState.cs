@@ -9,6 +9,12 @@ namespace Microsoft.Teams.AI.State
     /// </remarks>
     public class TempState : Record
     {
+
+        /// <summary>
+        /// Name of the file ids property.
+        /// </summary>
+        public const string FileIdsKey = "fileIds";
+
         /// <summary>
         /// Name of the input property.
         /// </summary>
@@ -40,6 +46,7 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public TempState() : base()
         {
+            this[FileIdsKey] = new List<string>();
             this[InputKey] = string.Empty;
             this[OutputKey] = string.Empty;
             this[ActionOutputsKey] = new Dictionary<string, string>();
@@ -48,12 +55,21 @@ namespace Microsoft.Teams.AI.State
         }
 
         /// <summary>
+        /// File ids passed to an AI prompt
+        /// </summary>
+        public List<string> FileIds
+        {
+            get => this.Get<List<string>>(FileIdsKey)!;
+            set => this.Set(FileIdsKey, value);
+        }
+
+        /// <summary>
         /// Input passed to an AI prompt
         /// </summary>
         public string Input
         {
-            get => Get<string>(InputKey)!;
-            set => Set(InputKey, value);
+            get => this.Get<string>(InputKey)!;
+            set => this.Set(InputKey, value);
         }
 
         // TODO: This is currently not used, should store AI prompt/function output here
@@ -62,8 +78,8 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public string Output
         {
-            get => Get<string>(OutputKey)!;
-            set => Set(OutputKey, value);
+            get => this.Get<string>(OutputKey)!;
+            set => this.Set(OutputKey, value);
         }
 
         /// <summary>
@@ -71,8 +87,8 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public Dictionary<string, string> ActionOutputs
         {
-            get => Get<Dictionary<string, string>>(ActionOutputsKey)!;
-            set => Set(ActionOutputsKey, value);
+            get => this.Get<Dictionary<string, string>>(ActionOutputsKey)!;
+            set => this.Set(ActionOutputsKey, value);
         }
 
         /// <summary>
@@ -80,8 +96,8 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public Dictionary<string, string> AuthTokens
         {
-            get => Get<Dictionary<string, string>>(AuthTokenKey)!;
-            set => Set(AuthTokenKey, value);
+            get => this.Get<Dictionary<string, string>>(AuthTokenKey)!;
+            set => this.Set(AuthTokenKey, value);
         }
 
         /// <summary>
@@ -89,8 +105,8 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public bool DuplicateTokenExchange
         {
-            get => Get<bool>(DuplicateTokenExchangeKey)!;
-            set => Set(DuplicateTokenExchangeKey, value);
+            get => this.Get<bool>(DuplicateTokenExchangeKey)!;
+            set => this.Set(DuplicateTokenExchangeKey, value);
         }
     }
 }

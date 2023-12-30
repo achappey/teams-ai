@@ -36,7 +36,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync(OpenAIThreadEndpoint, content, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync(OpenAIThreadEndpoint, content, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Models.Thread result = JsonSerializer.Deserialize<Models.Thread>(responseJson) ?? throw new SerializationException($"Failed to deserialize thread result response json: {responseJson}");
@@ -72,7 +72,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", content, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", content, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Message result = JsonSerializer.Deserialize<Message>(responseJson) ?? throw new SerializationException($"Failed to deserialize message result response json: {responseJson}");
@@ -108,7 +108,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                 ListResponse<Message> listResult;
                 try
                 {
-                    using HttpResponseMessage httpResponse = await _ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", BuildListQuery(before, after), OpenAIBetaHeaders, cancellationToken);
+                    using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", this.BuildListQuery(before, after), OpenAIBetaHeaders, cancellationToken);
                     string responseJson = await httpResponse.Content.ReadAsStringAsync();
                     listResult = JsonSerializer.Deserialize<ListResponse<Message>>(responseJson) ?? throw new SerializationException($"Failed to deserialize message list result response json: {responseJson}");
                 }
@@ -153,7 +153,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs", content, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs", content, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Run result = JsonSerializer.Deserialize<Run>(responseJson) ?? throw new SerializationException($"Failed to deserialize run result response json: {responseJson}");
@@ -183,7 +183,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         {
             try
             {
-                using HttpResponseMessage httpResponse = await _ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}", null, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}", null, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Run result = JsonSerializer.Deserialize<Run>(responseJson) ?? throw new SerializationException($"Failed to deserialize run result response json: {responseJson}");
@@ -212,7 +212,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         {
             try
             {
-                using HttpResponseMessage httpResponse = await _ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs", LimitOneQuery, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs", LimitOneQuery, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 ListResponse<Run> result = JsonSerializer.Deserialize<ListResponse<Run>>(responseJson) ?? throw new SerializationException($"Failed to deserialize run list result response json: {responseJson}");
@@ -249,7 +249,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}/submit_tool_outputs", content, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}/submit_tool_outputs", content, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Run result = JsonSerializer.Deserialize<Run>(responseJson) ?? throw new SerializationException($"Failed to deserialize run result response json: {responseJson}");

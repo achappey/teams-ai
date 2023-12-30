@@ -15,21 +15,9 @@ namespace Microsoft.Teams.AI.AI.Prompts.Sections
         /// </summary>
         public List<PromptSection> Sections;
 
-        private List<PromptSection> _fixedSections
-        {
-            get
-            {
-                return this.Sections.Where(s => s.Tokens > -1).OrderBy(s => s.Required).ToList();
-            }
-        }
+        private List<PromptSection> _fixedSections => this.Sections.Where(s => s.Tokens > -1).OrderBy(s => s.Required).ToList();
 
-        private List<PromptSection> _autoSections
-        {
-            get
-            {
-                return this.Sections.Where(s => s.Tokens == -1).OrderBy(s => s.Required).ToList();
-            }
-        }
+        private List<PromptSection> _autoSections => this.Sections.Where(s => s.Tokens == -1).OrderBy(s => s.Required).ToList();
 
         /// <summary>
         /// Creates an instance of `LayoutSection`

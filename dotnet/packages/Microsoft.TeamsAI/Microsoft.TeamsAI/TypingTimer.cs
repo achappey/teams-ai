@@ -26,7 +26,7 @@ namespace Microsoft.Teams.AI
         /// <param name="interval">The interval in milliseconds to send "typing" activity.</param>
         public TypingTimer(int interval = 1000)
         {
-            _interval = interval;
+            this._interval = interval;
         }
 
         /// <summary>
@@ -42,19 +42,19 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(turnContext);
 
-            if (turnContext.Activity.Type != ActivityTypes.Message || IsRunning())
+            if (turnContext.Activity.Type != ActivityTypes.Message || this.IsRunning())
             {
                 return false;
             }
 
             // Listen for outgoing activities
-            turnContext.OnSendActivities(StopTimerWhenSendMessageActivityHandlerAsync);
+            turnContext.OnSendActivities(this.StopTimerWhenSendMessageActivityHandlerAsync);
 
             // Start periodically send "typing" activity
-            _timer = new Timer(SendTypingActivity, turnContext, Timeout.Infinite, Timeout.Infinite);
+            this._timer = new Timer(this.SendTypingActivity, turnContext, Timeout.Infinite, Timeout.Infinite);
 
             // Fire first time
-            _timer.Change(0, Timeout.Infinite);
+            this._timer.Change(0, Timeout.Infinite);
 
             return true;
         }
@@ -64,24 +64,24 @@ namespace Microsoft.Teams.AI
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
+            this.Dispose(true);
             GC.SuppressFinalize(this);
         }
 
         public virtual void Dispose(bool disposing)
         {
-            if (!_disposedValue)
+            if (!this._disposedValue)
             {
                 if (disposing)
                 {
-                    if (_timer != null)
+                    if (this._timer != null)
                     {
-                        _timer.Dispose();
-                        _timer = null;
+                        this._timer.Dispose();
+                        this._timer = null;
                     }
                 }
 
-                _disposedValue = true;
+                this._disposedValue = true;
             }
         }
 
@@ -91,7 +91,7 @@ namespace Microsoft.Teams.AI
         /// <returns>True if there's a timer currently running, otherwise False.</returns>
         public bool IsRunning()
         {
-            return _timer != null;
+            return this._timer != null;
         }
 
         private async void SendTypingActivity(object state)
@@ -101,9 +101,9 @@ namespace Microsoft.Teams.AI
             try
             {
                 await turnContext.SendActivityAsync(new Activity { Type = ActivityTypes.Typing });
-                if (IsRunning())
+                if (this.IsRunning())
                 {
-                    _timer?.Change(_interval, Timeout.Infinite);
+                    this._timer?.Change(this._interval, Timeout.Infinite);
                 }
             }
             catch (Exception e) when (e is ObjectDisposedException || e is TaskCanceledException || e is NullReferenceException)
@@ -111,19 +111,19 @@ namespace Microsoft.Teams.AI
                 // We're in the middle of sending an activity on a background thread when the turn ends and
                 // the turn context object is disposed of or the request is cancelled. We can just eat the
                 // error but lets make sure our states cleaned up a bit.
-                Dispose();
+                this.Dispose();
             }
         }
 
         private Task<ResourceResponse[]> StopTimerWhenSendMessageActivityHandlerAsync(ITurnContext turnContext, List<Activity> activities, Func<Task<ResourceResponse[]>> next)
         {
-            if (_timer != null)
+            if (this._timer != null)
             {
                 foreach (Activity activity in activities)
                 {
                     if (activity.Type == ActivityTypes.Message)
                     {
-                        Dispose();
+                        this.Dispose();
                         break;
                     }
                 }

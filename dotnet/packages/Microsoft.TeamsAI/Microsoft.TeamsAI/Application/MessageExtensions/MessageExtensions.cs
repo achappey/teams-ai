@@ -67,7 +67,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandId);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(commandId, input), SUBMIT_ACTION_INVOKE_NAME);
-            return OnSubmitAction(routeSelector, handler);
+            return this.OnSubmitAction(routeSelector, handler);
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandIdPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => commandIdPattern.IsMatch(input), SUBMIT_ACTION_INVOKE_NAME);
-            return OnSubmitAction(routeSelector, handler);
+            return this.OnSubmitAction(routeSelector, handler);
         }
 
         /// <summary>
@@ -111,8 +111,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -129,24 +129,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string commandId in routeSelectors.Strings)
                 {
-                    OnSubmitAction(commandId, handler);
+                    this.OnSubmitAction(commandId, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex commandIdPattern in routeSelectors.Regexes)
                 {
-                    OnSubmitAction(commandIdPattern, handler);
+                    this.OnSubmitAction(commandIdPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnSubmitAction(routeSelector, handler);
+                    this.OnSubmitAction(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -161,7 +161,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandId);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(commandId, input), SUBMIT_ACTION_INVOKE_NAME, "edit");
-            return OnBotMessagePreviewEdit(routeSelector, handler);
+            return this.OnBotMessagePreviewEdit(routeSelector, handler);
         }
 
         /// <summary>
@@ -176,7 +176,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandIdPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => commandIdPattern.IsMatch(input), SUBMIT_ACTION_INVOKE_NAME, "edit");
-            return OnBotMessagePreviewEdit(routeSelector, handler);
+            return this.OnBotMessagePreviewEdit(routeSelector, handler);
         }
 
         /// <summary>
@@ -208,8 +208,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -227,24 +227,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string commandId in routeSelectors.Strings)
                 {
-                    OnBotMessagePreviewEdit(commandId, handler);
+                    this.OnBotMessagePreviewEdit(commandId, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex commandIdPattern in routeSelectors.Regexes)
                 {
-                    OnBotMessagePreviewEdit(commandIdPattern, handler);
+                    this.OnBotMessagePreviewEdit(commandIdPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnBotMessagePreviewEdit(routeSelector, handler);
+                    this.OnBotMessagePreviewEdit(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -259,7 +259,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandId);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(commandId, input), SUBMIT_ACTION_INVOKE_NAME, "send");
-            return OnBotMessagePreviewSend(routeSelector, handler);
+            return this.OnBotMessagePreviewSend(routeSelector, handler);
         }
 
         /// <summary>
@@ -274,7 +274,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandIdPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => commandIdPattern.IsMatch(input), SUBMIT_ACTION_INVOKE_NAME, "send");
-            return OnBotMessagePreviewSend(routeSelector, handler);
+            return this.OnBotMessagePreviewSend(routeSelector, handler);
         }
 
         /// <summary>
@@ -310,8 +310,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -329,24 +329,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string commandId in routeSelectors.Strings)
                 {
-                    OnBotMessagePreviewSend(commandId, handler);
+                    this.OnBotMessagePreviewSend(commandId, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex commandIdPattern in routeSelectors.Regexes)
                 {
-                    OnBotMessagePreviewSend(commandIdPattern, handler);
+                    this.OnBotMessagePreviewSend(commandIdPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnBotMessagePreviewSend(routeSelector, handler);
+                    this.OnBotMessagePreviewSend(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -360,7 +360,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandId);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(commandId, input), MessageExtensionsInvokeNames.FETCH_TASK_INVOKE_NAME);
-            return OnFetchTask(routeSelector, handler);
+            return this.OnFetchTask(routeSelector, handler);
         }
 
         /// <summary>
@@ -374,7 +374,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandIdPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => commandIdPattern.IsMatch(input), MessageExtensionsInvokeNames.FETCH_TASK_INVOKE_NAME);
-            return OnFetchTask(routeSelector, handler);
+            return this.OnFetchTask(routeSelector, handler);
         }
 
         /// <summary>
@@ -404,8 +404,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -422,24 +422,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string commandId in routeSelectors.Strings)
                 {
-                    OnFetchTask(commandId, handler);
+                    this.OnFetchTask(commandId, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex commandIdPattern in routeSelectors.Regexes)
                 {
-                    OnFetchTask(commandIdPattern, handler);
+                    this.OnFetchTask(commandIdPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnFetchTask(routeSelector, handler);
+                    this.OnFetchTask(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -453,7 +453,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandId);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(commandId, input), MessageExtensionsInvokeNames.QUERY_INVOKE_NAME);
-            return OnQuery(routeSelector, handler);
+            return this.OnQuery(routeSelector, handler);
         }
 
         /// <summary>
@@ -467,7 +467,7 @@ namespace Microsoft.Teams.AI
             Verify.ParamNotNull(commandIdPattern);
             Verify.ParamNotNull(handler);
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => commandIdPattern.IsMatch(input), MessageExtensionsInvokeNames.QUERY_INVOKE_NAME);
-            return OnQuery(routeSelector, handler);
+            return this.OnQuery(routeSelector, handler);
         }
 
         /// <summary>
@@ -509,8 +509,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -527,24 +527,24 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string commandId in routeSelectors.Strings)
                 {
-                    OnQuery(commandId, handler);
+                    this.OnQuery(commandId, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex commandIdPattern in routeSelectors.Regexes)
                 {
-                    OnQuery(commandIdPattern, handler);
+                    this.OnQuery(commandIdPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnQuery(routeSelector, handler);
+                    this.OnQuery(routeSelector, handler);
                 }
             }
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -582,8 +582,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -615,8 +615,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -653,8 +653,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -688,8 +688,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -719,8 +719,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -752,8 +752,8 @@ namespace Microsoft.Teams.AI
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         private static RouteSelectorAsync CreateTaskSelector(Func<string, bool> isMatch, string invokeName, string? botMessagePreviewAction = default)

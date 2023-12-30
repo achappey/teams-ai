@@ -34,8 +34,8 @@ namespace Microsoft.Teams.AI.AI.Planners
         /// <param name="parameters">Any parameters that the AI system should use to perform the action.</param>
         public PredictedDoCommand(string action, Dictionary<string, object?> parameters)
         {
-            Action = action;
-            Parameters = parameters;
+            this.Action = action;
+            this.Parameters = parameters;
         }
 
         /// <summary>
@@ -45,8 +45,8 @@ namespace Microsoft.Teams.AI.AI.Planners
         [JsonConstructor]
         public PredictedDoCommand(string action)
         {
-            Action = action;
-            Parameters = new Dictionary<string, object?>();
+            this.Action = action;
+            this.Parameters = new Dictionary<string, object?>();
         }
 
         /// <summary>

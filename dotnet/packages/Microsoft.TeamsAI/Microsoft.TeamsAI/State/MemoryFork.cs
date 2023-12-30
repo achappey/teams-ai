@@ -16,7 +16,7 @@
         /// <param name="memory">Memory to fork.</param>
         public MemoryFork(IMemory? memory = null)
         {
-            _memory = memory;
+            this._memory = memory;
         }
 
         /// <summary>
@@ -26,10 +26,10 @@
         /// If scope is omitted, the value is deleted from the temporary scope.</param>
         public void DeleteValue(string path)
         {
-            (string scope, string name) = GetScopeAndName(path);
-            if (_fork.ContainsKey(scope) && _fork[scope].ContainsKey(name))
+            (string scope, string name) = this.GetScopeAndName(path);
+            if (this._fork.ContainsKey(scope) && this._fork[scope].ContainsKey(name))
             {
-                _fork[scope].Remove(name);
+                this._fork[scope].Remove(name);
             }
         }
 
@@ -41,16 +41,16 @@
         /// <returns>The value or undefined if not found.</returns>
         public object? GetValue(string path)
         {
-            (string scope, string name) = GetScopeAndName(path);
-            if (_fork.ContainsKey(scope))
+            (string scope, string name) = this.GetScopeAndName(path);
+            if (this._fork.ContainsKey(scope))
             {
-                if (_fork[scope].ContainsKey(name))
+                if (this._fork[scope].ContainsKey(name))
                 {
-                    return _fork[scope][name];
+                    return this._fork[scope][name];
                 }
             }
 
-            return _memory?.GetValue(path);
+            return this._memory?.GetValue(path);
         }
 
         /// <summary>
@@ -61,18 +61,13 @@
         /// <returns>True if the value exists, false otherwise.</returns>
         public bool HasValue(string path)
         {
-            (string scope, string name) = GetScopeAndName(path);
-            if (_fork.ContainsKey(scope))
+            (string scope, string name) = this.GetScopeAndName(path);
+            if (this._fork.ContainsKey(scope))
             {
-                return _fork[scope].ContainsKey(name);
+                return this._fork[scope].ContainsKey(name);
             }
 
-            if (_memory != null)
-            {
-                return _memory.HasValue(path);
-            }
-
-            return false;
+            return this._memory != null ? this._memory.HasValue(path) : false;
         }
 
         /// <summary>
@@ -83,13 +78,13 @@
         /// <param name="value">Value to assign.</param>
         public void SetValue(string path, object value)
         {
-            (string scope, string name) = GetScopeAndName(path);
-            if (!_fork.ContainsKey(scope))
+            (string scope, string name) = this.GetScopeAndName(path);
+            if (!this._fork.ContainsKey(scope))
             {
-                _fork[scope] = new();
+                this._fork[scope] = new();
             }
 
-            _fork[scope][name] = value;
+            this._fork[scope][name] = value;
         }
 
         private (string, string) GetScopeAndName(string path)

@@ -24,8 +24,8 @@ namespace Microsoft.Teams.AI.AI.Action
         /// <param name="isDefault">Whether this action is default.</param>
         public ActionAttribute(string name, bool isDefault = false)
         {
-            Name = name;
-            IsDefault = isDefault;
+            this.Name = name;
+            this.IsDefault = isDefault;
         }
     }
 }

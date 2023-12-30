@@ -32,9 +32,9 @@ namespace Microsoft.Teams.AI.AI.Prompts
         /// </summary>
         public readonly PromptManagerOptions Options;
 
-        private Dictionary<string, PromptFunction<List<string>>> _functions = new();
-        private Dictionary<string, IDataSource> _dataSources = new();
-        private Dictionary<string, PromptTemplate> _prompts = new();
+        private readonly Dictionary<string, PromptFunction<List<string>>> _functions = new();
+        private readonly Dictionary<string, IDataSource> _dataSources = new();
+        private readonly Dictionary<string, PromptTemplate> _prompts = new();
 
         /// <summary>
         /// Creates an instance of `PromptManager`.
@@ -76,12 +76,7 @@ namespace Microsoft.Teams.AI.AI.Prompts
         {
             PromptFunction<List<string>>? func = this.GetFunction(name);
 
-            if (func != null)
-            {
-                return await func(context, memory, this, tokenizer, args);
-            }
-
-            return null;
+            return func != null ? await func(context, memory, this, tokenizer, args) : null;
         }
 
         /// <inheritdoc />
@@ -151,13 +146,7 @@ namespace Microsoft.Teams.AI.AI.Prompts
 
             foreach (string name in dataSources.Keys)
             {
-                IDataSource? dataSource = this.GetDataSource(name);
-
-                if (dataSource == null)
-                {
-                    throw new ApplicationException($"DataSource '{name}' not found for prompt '{template.Name}'.");
-                }
-
+                IDataSource? dataSource = this.GetDataSource(name) ?? throw new ApplicationException($"DataSource '{name}' not found for prompt '{template.Name}'.");
                 int tokens = Math.Max(dataSources[name], 2);
                 template.Prompt.AddSection(new DataSourceSection(dataSource, tokens));
             }
@@ -192,7 +181,7 @@ namespace Microsoft.Teams.AI.AI.Prompts
             const string PROMPT_FILE = "skprompt.txt";
 
             string promptFolder = Path.Combine(this.Options.PromptFolder, name);
-            _VerifyDirectoryExists(promptFolder);
+            this._VerifyDirectoryExists(promptFolder);
 
             // Continue only if prompt template exists
             string promptPath = Path.Combine(promptFolder, PROMPT_FILE);

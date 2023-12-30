@@ -29,7 +29,7 @@ namespace Microsoft.Teams.AI
                     // Message extension token exchange invoke activity
                     try
                     {
-                        TokenResponse tokenExchangeResponse = await HandleSsoTokenExchange(context);
+                        TokenResponse tokenExchangeResponse = await this.HandleSsoTokenExchange(context);
                         if (!string.IsNullOrEmpty(tokenExchangeResponse.Token))
                         {
                             return tokenExchangeResponse.Token;
@@ -63,7 +63,7 @@ namespace Microsoft.Teams.AI
             {
                 try
                 {
-                    TokenResponse response = await HandleUserSignIn(context, state.ToString());
+                    TokenResponse response = await this.HandleUserSignIn(context, state.ToString());
                     if (!string.IsNullOrEmpty(response.Token))
                     {
                         return response.Token;
@@ -78,7 +78,7 @@ namespace Microsoft.Teams.AI
             // No auth/silentAuth action sent to Teams yet
             // Retrieve the OAuth Sign in Link to use in the MessageExtensionResult Suggested Actions
 
-            string signInLink = await GetSignInLink(context);
+            string signInLink = await this.GetSignInLink(context);
             // Do 'silentAuth' if this is a composeExtension/query request otherwise do normal `auth` flow.
             string authType = context.Activity.Name == MessageExtensionsInvokeNames.QUERY_INVOKE_NAME ? "silentAuth" : "auth";
 

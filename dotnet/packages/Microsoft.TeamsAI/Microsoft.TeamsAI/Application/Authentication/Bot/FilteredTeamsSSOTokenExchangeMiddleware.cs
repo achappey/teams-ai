@@ -7,7 +7,7 @@ namespace Microsoft.Teams.AI.Application.Authentication.Bot
 {
     internal class FilteredTeamsSSOTokenExchangeMiddleware : TeamsSSOTokenExchangeMiddleware
     {
-        private string _oauthConnectionName;
+        private readonly string _oauthConnectionName;
 
         public FilteredTeamsSSOTokenExchangeMiddleware(IStorage storage, string oauthConnectionName) : base(storage, oauthConnectionName)
         {
@@ -16,11 +16,8 @@ namespace Microsoft.Teams.AI.Application.Authentication.Bot
 
         public new async Task OnTurnAsync(ITurnContext turnContext, NextDelegate next, CancellationToken cancellationToken = default)
         {
-            JObject? obj = turnContext.Activity.Value as JObject;
-            if (obj == null)
-            {
-                throw new TeamsAIException("Excepted `turnContext.Activity.Value` to have `connectionName` property");
-            };
+            JObject? obj = turnContext.Activity.Value as JObject ?? throw new TeamsAIException("Excepted `turnContext.Activity.Value` to have `connectionName` property");
+            ;
             string? connectionName = obj.Value<string>("connectionName");
 
             // If connection name matches then continue to the Teams SSO Token Exchange Middleware.

@@ -41,9 +41,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verb);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
+            string filter = this._app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(verb, input), filter, FETCH_INVOKE_NAME);
-            return OnFetch(routeSelector, handler);
+            return this.OnFetch(routeSelector, handler);
         }
 
         /// <summary>
@@ -56,9 +56,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verbPattern);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
+            string filter = this._app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => verbPattern.IsMatch(input), filter, FETCH_INVOKE_NAME);
-            return OnFetch(routeSelector, handler);
+            return this.OnFetch(routeSelector, handler);
         }
 
         /// <summary>
@@ -91,8 +91,8 @@ namespace Microsoft.Teams.AI
                 }
             };
 
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -110,25 +110,25 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string verb in routeSelectors.Strings)
                 {
-                    OnFetch(verb, handler);
+                    this.OnFetch(verb, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex verbPattern in routeSelectors.Regexes)
                 {
-                    OnFetch(verbPattern, handler);
+                    this.OnFetch(verbPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnFetch(routeSelector, handler);
+                    this.OnFetch(routeSelector, handler);
                 }
             }
 
-            return _app;
+            return this._app;
         }
 
         /// <summary>
@@ -141,9 +141,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verb);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
+            string filter = this._app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => string.Equals(verb, input), filter, SUBMIT_INVOKE_NAME);
-            return OnSubmit(routeSelector, handler);
+            return this.OnSubmit(routeSelector, handler);
         }
 
 
@@ -157,9 +157,9 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(verbPattern);
             Verify.ParamNotNull(handler);
-            string filter = _app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
+            string filter = this._app.Options.TaskModules?.TaskDataFilter ?? DEFAULT_TASK_DATA_FILTER;
             RouteSelectorAsync routeSelector = CreateTaskSelector((string input) => verbPattern.IsMatch(input), filter, SUBMIT_INVOKE_NAME);
-            return OnSubmit(routeSelector, handler);
+            return this.OnSubmit(routeSelector, handler);
         }
 
         /// <summary>
@@ -192,8 +192,8 @@ namespace Microsoft.Teams.AI
                 }
             };
 
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
+            return this._app;
         }
 
         /// <summary>
@@ -211,25 +211,25 @@ namespace Microsoft.Teams.AI
             {
                 foreach (string verb in routeSelectors.Strings)
                 {
-                    OnSubmit(verb, handler);
+                    this.OnSubmit(verb, handler);
                 }
             }
             if (routeSelectors.Regexes != null)
             {
                 foreach (Regex verbPattern in routeSelectors.Regexes)
                 {
-                    OnSubmit(verbPattern, handler);
+                    this.OnSubmit(verbPattern, handler);
                 }
             }
             if (routeSelectors.RouteSelectors != null)
             {
                 foreach (RouteSelectorAsync routeSelector in routeSelectors.RouteSelectors)
                 {
-                    OnSubmit(routeSelector, handler);
+                    this.OnSubmit(routeSelector, handler);
                 }
             }
 
-            return _app;
+            return this._app;
         }
 
         private static RouteSelectorAsync CreateTaskSelector(Func<string, bool> isMatch, string filter, string invokeName)

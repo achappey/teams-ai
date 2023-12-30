@@ -48,8 +48,8 @@ namespace Microsoft.Teams.AI.AI.Embeddings
             Verify.ParamNotNull(apiKey);
             Verify.ParamNotNull(model);
 
-            ApiKey = apiKey;
-            Model = model;
+            this.ApiKey = apiKey;
+            this.Model = model;
         }
     }
 }

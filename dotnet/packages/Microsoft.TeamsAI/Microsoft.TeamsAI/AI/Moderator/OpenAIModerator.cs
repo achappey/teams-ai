@@ -24,27 +24,27 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <param name="httpClient">HTTP client.</param>
         public OpenAIModerator(OpenAIModeratorOptions options, ILoggerFactory? loggerFactory = null, HttpClient? httpClient = null)
         {
-            _options = options;
+            this._options = options;
 
-            OpenAIClientOptions clientOptions = new(_options.ApiKey)
+            OpenAIClientOptions clientOptions = new(this._options.ApiKey)
             {
-                Organization = _options.Organization,
+                Organization = this._options.Organization,
             };
 
-            _client = new OpenAIClient(clientOptions, loggerFactory, httpClient);
+            this._client = new OpenAIClient(clientOptions, loggerFactory, httpClient);
         }
 
         /// <inheritdoc />
         public async Task<Plan?> ReviewInputAsync(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken = default)
         {
-            switch (_options.Moderate)
+            switch (this._options.Moderate)
             {
                 case ModerationType.Input:
                 case ModerationType.Both:
                 {
                     string input = turnState.Temp?.Input ?? turnContext.Activity.Text;
 
-                    return await _HandleTextModerationAsync(input, true, cancellationToken);
+                    return await this._HandleTextModerationAsync(input, true, cancellationToken);
                 }
                 default:
                     break;
@@ -56,7 +56,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <inheritdoc />
         public async Task<Plan> ReviewOutputAsync(ITurnContext turnContext, TState turnState, Plan plan, CancellationToken cancellationToken = default)
         {
-            switch (_options.Moderate)
+            switch (this._options.Moderate)
             {
                 case ModerationType.Output:
                 case ModerationType.Both:
@@ -68,7 +68,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
                             string output = sayCommand.Response;
 
                             // If plan is flagged it will be replaced
-                            Plan? newPlan = await _HandleTextModerationAsync(output, false, cancellationToken);
+                            Plan? newPlan = await this._HandleTextModerationAsync(output, false, cancellationToken);
 
                             return newPlan ?? plan;
                         }
@@ -87,7 +87,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
         {
             try
             {
-                ModerationResponse response = await _client.ExecuteTextModerationAsync(text, _options.Model, cancellationToken);
+                ModerationResponse response = await this._client.ExecuteTextModerationAsync(text, this._options.Model, cancellationToken);
                 ModerationResult? result = response.Results.Count > 0 ? response.Results[0] : null;
 
                 if (result != null)

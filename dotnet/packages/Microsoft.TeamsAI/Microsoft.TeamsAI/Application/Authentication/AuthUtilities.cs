@@ -49,12 +49,7 @@ namespace Microsoft.Teams.AI
         {
             string? value = state.User.Get<string>(IS_SIGNED_IN_KEY);
 
-            if (value == string.Empty || value == null)
-            {
-                return null;
-            }
-
-            return value;
+            return value == string.Empty || value == null ? null : value;
         }
 
         /// <summary>

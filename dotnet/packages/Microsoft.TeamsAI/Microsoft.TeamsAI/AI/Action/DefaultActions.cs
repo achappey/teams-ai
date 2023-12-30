@@ -6,6 +6,9 @@ using Microsoft.Bot.Connector;
 using Microsoft.Extensions.Logging;
 using Microsoft.Bot.Builder;
 using Microsoft.Extensions.Logging.Abstractions;
+using AdaptiveCards;
+using Microsoft.Bot.Schema;
+using Newtonsoft.Json;
 
 namespace Microsoft.Teams.AI.AI.Action
 {
@@ -15,27 +18,27 @@ namespace Microsoft.Teams.AI.AI.Action
 
         public DefaultActions(ILoggerFactory? loggerFactory = null)
         {
-            _logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(DefaultActions<TState>));
+            this._logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(DefaultActions<TState>));
         }
 
         [Action(AIConstants.UnknownActionName, isDefault: true)]
         public Task<string> UnknownAction([ActionName] string action)
         {
-            _logger.LogError($"An AI action named \"{action}\" was predicted but no handler was registered");
+            this._logger.LogError($"An AI action named \"{action}\" was predicted but no handler was registered");
             return Task.FromResult(AIConstants.StopCommand);
         }
 
         [Action(AIConstants.FlaggedInputActionName, isDefault: true)]
         public Task<string> FlaggedInputAction()
         {
-            _logger.LogError($"The users input has been moderated but no handler was registered for {AIConstants.FlaggedInputActionName}");
+            this._logger.LogError($"The users input has been moderated but no handler was registered for {AIConstants.FlaggedInputActionName}");
             return Task.FromResult(AIConstants.StopCommand);
         }
 
         [Action(AIConstants.FlaggedOutputActionName, isDefault: true)]
         public Task<string> FlaggedOutputAction()
         {
-            _logger.LogError($"The bots output has been moderated but no handler was registered for {AIConstants.FlaggedOutputActionName}");
+            this._logger.LogError($"The bots output has been moderated but no handler was registered for {AIConstants.FlaggedOutputActionName}");
             return Task.FromResult(AIConstants.StopCommand);
         }
 
@@ -102,6 +105,51 @@ namespace Microsoft.Teams.AI.AI.Action
             {
                 throw new TeamsAIException("The AI system has exceeded the maximum amount of time allowed.");
             }
+        }
+
+        [Action("file_citation", isDefault: true)]
+        public async Task<string> DisplayCitation([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
+        {
+            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
+
+            card.Body.Add(new AdaptiveTextBlock
+            {
+                Text = parameters["text"].ToString(),
+                Weight = AdaptiveTextWeight.Bolder,
+                Size = AdaptiveTextSize.Medium
+            });
+
+            AdaptiveFactSet factSet = new();
+
+            factSet.Facts.Add(new AdaptiveFact("Filename", parameters["filename"].ToString()));
+            factSet.Facts.Add(new AdaptiveFact("Start index", parameters["start_index"].ToString()));
+            factSet.Facts.Add(new AdaptiveFact("End index", parameters["end_index"].ToString()));
+
+            card.Body.Add(factSet);
+
+            card.Body.Add(new AdaptiveTextBlock
+            {
+                Text = $"Quote",
+                Size = AdaptiveTextSize.Default,
+                Weight = AdaptiveTextWeight.Bolder
+            });
+
+            card.Body.Add(new AdaptiveTextBlock
+            {
+                Text = parameters["quote"].ToString(),
+                Wrap = true
+            });
+
+            Attachment attachment = new()
+            {
+                ContentType = "application/vnd.microsoft.card.adaptive",
+                Content = JsonConvert.DeserializeObject(card.ToJson())
+            };
+
+            IMessageActivity reply = MessageFactory.Attachment(attachment);
+            await turnContext.SendActivityAsync(reply);
+
+            return string.Empty;
         }
     }
 }

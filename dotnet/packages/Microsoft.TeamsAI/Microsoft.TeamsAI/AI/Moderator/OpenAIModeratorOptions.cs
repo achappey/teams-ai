@@ -38,8 +38,8 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <param name="moderate">Which parts of the conversation to moderate.</param>
         public OpenAIModeratorOptions(string apiKey, ModerationType moderate)
         {
-            ApiKey = apiKey;
-            Moderate = moderate;
+            this.ApiKey = apiKey;
+            this.Moderate = moderate;
         }
     }
 

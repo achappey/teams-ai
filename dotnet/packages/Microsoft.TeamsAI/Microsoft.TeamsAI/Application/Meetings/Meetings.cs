@@ -43,8 +43,8 @@ namespace Microsoft.Teams.AI
                 MeetingStartEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingStartEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            return this._app;
         }
 
         /// <summary>
@@ -66,8 +66,8 @@ namespace Microsoft.Teams.AI
                 MeetingEndEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingEndEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            return this._app;
         }
 
         /// <summary>
@@ -89,8 +89,8 @@ namespace Microsoft.Teams.AI
                 MeetingParticipantsEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingParticipantsEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            return this._app;
         }
 
         /// <summary>
@@ -112,8 +112,8 @@ namespace Microsoft.Teams.AI
                 MeetingParticipantsEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingParticipantsEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
             };
-            _app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
-            return _app;
+            this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
+            return this._app;
         }
     }
 }

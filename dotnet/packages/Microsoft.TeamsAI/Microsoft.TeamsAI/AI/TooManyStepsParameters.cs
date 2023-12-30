@@ -34,10 +34,10 @@
         /// <param name="stepCount"></param>
         public TooManyStepsParameters(int maxSteps, TimeSpan maxTime, DateTime startTime, int stepCount)
         {
-            MaxSteps = maxSteps;
-            MaxTime = maxTime;
-            StartTime = startTime;
-            StepCount = stepCount;
+            this.MaxSteps = maxSteps;
+            this.MaxTime = maxTime;
+            this.StartTime = startTime;
+            this.StepCount = stepCount;
         }
     }
 }

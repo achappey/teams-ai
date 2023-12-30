@@ -7,10 +7,10 @@ namespace Microsoft.Teams.AI.Utilities.JsonConverters
 {
     internal class PredictedCommandJsonConverter : JsonConverter<IPredictedCommand>
     {
-        private static JsonEncodedText _typePropertyName = JsonEncodedText.Encode("type");
-        private static JsonEncodedText _actionPropertyName = JsonEncodedText.Encode("action");
-        private static JsonEncodedText _parametersPropertyName = JsonEncodedText.Encode("parameters");
-        private static JsonEncodedText _responsePropertyName = JsonEncodedText.Encode("response");
+        private static readonly JsonEncodedText _typePropertyName = JsonEncodedText.Encode("type");
+        private static readonly JsonEncodedText _actionPropertyName = JsonEncodedText.Encode("action");
+        private static readonly JsonEncodedText _parametersPropertyName = JsonEncodedText.Encode("parameters");
+        private static readonly JsonEncodedText _responsePropertyName = JsonEncodedText.Encode("response");
 
         public override bool CanConvert(Type typeToConvert)
         {

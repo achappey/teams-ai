@@ -62,7 +62,7 @@ namespace Microsoft.Teams.AI.AI.Prompts.Sections
 
             foreach (ChatMessage message in messages)
             {
-                string prefix = message.Role == ChatRole.User ? UserPrefix : message.Role == ChatRole.Assistant ? AssistantPrefix : "";
+                string prefix = message.Role == ChatRole.User ? this.UserPrefix : message.Role == ChatRole.Assistant ? this.AssistantPrefix : "";
                 string line = prefix + message.Content;
                 int length = tokenizer.Encode(line).Count;
 

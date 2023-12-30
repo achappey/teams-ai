@@ -41,7 +41,7 @@ namespace Microsoft.Teams.AI.AI.Prompts.Sections
         /// </summary>
         public readonly ChatRole role;
 
-        private List<RenderFunction> _renderers;
+        private readonly List<RenderFunction> _renderers;
 
         /// <summary>
         /// Creates instance of `TemplateSection`

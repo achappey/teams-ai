@@ -19,7 +19,7 @@ namespace Microsoft.Teams.AI.AI.Models
 
         public override void OnSendingRequest(HttpMessage message)
         {
-            message.Request.Uri.AppendQuery(_queryName, _queryValue);
+            message.Request.Uri.AppendQuery(this._queryName, this._queryValue);
         }
     }
 }

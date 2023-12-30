@@ -27,7 +27,7 @@ namespace Microsoft.Teams.AI.AI.Models
         private readonly ILogger _logger;
 
         private readonly OpenAIClient _openAIClient;
-        private string _deploymentName;
+        private readonly string _deploymentName;
 
         private static readonly string _userAgent = "AlphaWave";
 
@@ -43,7 +43,7 @@ namespace Microsoft.Teams.AI.AI.Models
             Verify.ParamNotNull(options.ApiKey, "OpenAIModelOptions.ApiKey");
             Verify.ParamNotNull(options.DefaultModel, "OpenAIModelOptions.DefaultModel");
 
-            _options = new OpenAIModelOptions(options.ApiKey, options.DefaultModel)
+            this._options = new OpenAIModelOptions(options.ApiKey, options.DefaultModel)
             {
                 Organization = options.Organization,
                 CompletionType = options.CompletionType ?? CompletionType.Chat,
@@ -51,25 +51,25 @@ namespace Microsoft.Teams.AI.AI.Models
                 RetryPolicy = options.RetryPolicy ?? new List<TimeSpan> { TimeSpan.FromMilliseconds(2000), TimeSpan.FromMilliseconds(5000) },
                 UseSystemMessages = options.UseSystemMessages ?? false,
             };
-            _logger = loggerFactory == null ? NullLogger.Instance : loggerFactory.CreateLogger<OpenAIModel>();
+            this._logger = loggerFactory == null ? NullLogger.Instance : loggerFactory.CreateLogger<OpenAIModel>();
 
             OpenAIClientOptions openAIClientOptions = new()
             {
-                RetryPolicy = new RetryPolicy(_options.RetryPolicy!.Count, new SequentialDelayStrategy(_options.RetryPolicy))
+                RetryPolicy = new RetryPolicy(this._options.RetryPolicy!.Count, new SequentialDelayStrategy(this._options.RetryPolicy))
             };
             openAIClientOptions.AddPolicy(new AddHeaderRequestPolicy("User-Agent", _userAgent), HttpPipelinePosition.PerCall);
             if (httpClient != null)
             {
                 openAIClientOptions.Transport = new HttpClientTransport(httpClient);
             }
-            OpenAIModelOptions openAIModelOptions = (OpenAIModelOptions)_options;
+            OpenAIModelOptions openAIModelOptions = (OpenAIModelOptions)this._options;
             if (!string.IsNullOrEmpty(openAIModelOptions.Organization))
             {
                 openAIClientOptions.AddPolicy(new AddHeaderRequestPolicy("OpenAI-Organization", openAIModelOptions.Organization!), HttpPipelinePosition.PerCall);
             }
-            _openAIClient = new OpenAIClient(openAIModelOptions.ApiKey, openAIClientOptions);
+            this._openAIClient = new OpenAIClient(openAIModelOptions.ApiKey, openAIClientOptions);
 
-            _deploymentName = options.DefaultModel;
+            this._deploymentName = options.DefaultModel;
         }
 
         /// <summary>
@@ -89,13 +89,8 @@ namespace Microsoft.Teams.AI.AI.Models
                 throw new ArgumentException($"Model created with an invalid endpoint of `{options.AzureEndpoint}`. The endpoint must be a valid HTTPS url.");
             }
             string apiVersion = options.AzureApiVersion ?? "2023-05-15";
-            ServiceVersion? serviceVersion = ConvertStringToServiceVersion(apiVersion);
-            if (serviceVersion == null)
-            {
-                throw new ArgumentException($"Model created with an unsupported API version of `{apiVersion}`.");
-            }
-
-            _options = new AzureOpenAIModelOptions(options.AzureApiKey, options.AzureDefaultDeployment, options.AzureEndpoint)
+            ServiceVersion? serviceVersion = this.ConvertStringToServiceVersion(apiVersion) ?? throw new ArgumentException($"Model created with an unsupported API version of `{apiVersion}`.");
+            this._options = new AzureOpenAIModelOptions(options.AzureApiKey, options.AzureDefaultDeployment, options.AzureEndpoint)
             {
                 AzureApiVersion = apiVersion,
                 CompletionType = options.CompletionType ?? CompletionType.Chat,
@@ -103,21 +98,21 @@ namespace Microsoft.Teams.AI.AI.Models
                 RetryPolicy = options.RetryPolicy ?? new List<TimeSpan> { TimeSpan.FromMilliseconds(2000), TimeSpan.FromMilliseconds(5000) },
                 UseSystemMessages = options.UseSystemMessages ?? false,
             };
-            _logger = loggerFactory == null ? NullLogger.Instance : loggerFactory.CreateLogger<OpenAIModel>();
+            this._logger = loggerFactory == null ? NullLogger.Instance : loggerFactory.CreateLogger<OpenAIModel>();
 
             OpenAIClientOptions openAIClientOptions = new(serviceVersion.Value)
             {
-                RetryPolicy = new RetryPolicy(_options.RetryPolicy!.Count, new SequentialDelayStrategy(_options.RetryPolicy))
+                RetryPolicy = new RetryPolicy(this._options.RetryPolicy!.Count, new SequentialDelayStrategy(this._options.RetryPolicy))
             };
             openAIClientOptions.AddPolicy(new AddHeaderRequestPolicy("User-Agent", _userAgent), HttpPipelinePosition.PerCall);
             if (httpClient != null)
             {
                 openAIClientOptions.Transport = new HttpClientTransport(httpClient);
             }
-            AzureOpenAIModelOptions azureOpenAIModelOptions = (AzureOpenAIModelOptions)_options;
-            _openAIClient = new OpenAIClient(new Uri(azureOpenAIModelOptions.AzureEndpoint), new AzureKeyCredential(azureOpenAIModelOptions.AzureApiKey), openAIClientOptions);
+            AzureOpenAIModelOptions azureOpenAIModelOptions = (AzureOpenAIModelOptions)this._options;
+            this._openAIClient = new OpenAIClient(new Uri(azureOpenAIModelOptions.AzureEndpoint), new AzureKeyCredential(azureOpenAIModelOptions.AzureApiKey), openAIClientOptions);
 
-            _deploymentName = options.AzureDefaultDeployment;
+            this._deploymentName = options.AzureDefaultDeployment;
         }
 
         /// <inheritdoc/>
@@ -125,7 +120,7 @@ namespace Microsoft.Teams.AI.AI.Models
         {
             DateTime startTime = DateTime.UtcNow;
             int maxInputTokens = promptTemplate.Configuration.Completion.MaxInputTokens;
-            if (_options.CompletionType == CompletionType.Text)
+            if (this._options.CompletionType == CompletionType.Text)
             {
                 // Render prompt
                 RenderedPromptSection<string> prompt = await promptTemplate.Prompt.RenderAsTextAsync(turnContext, memory, promptFunctions, tokenizer, maxInputTokens, cancellationToken);
@@ -137,14 +132,14 @@ namespace Microsoft.Teams.AI.AI.Models
                         Error = new($"The generated text completion prompt had a length of {prompt.Length} tokens which exceeded the MaxInputTokens of {maxInputTokens}.")
                     };
                 }
-                if (_options.LogRequests!.Value)
+                if (this._options.LogRequests!.Value)
                 {
                     // TODO: Colorize
-                    _logger.LogTrace("PROMPT:");
-                    _logger.LogTrace(prompt.Output);
+                    this._logger.LogTrace("PROMPT:");
+                    this._logger.LogTrace(prompt.Output);
                 }
 
-                CompletionsOptions completionsOptions = new(_deploymentName, new List<string> { prompt.Output })
+                CompletionsOptions completionsOptions = new(this._deploymentName, new List<string> { prompt.Output })
                 {
                     MaxTokens = maxInputTokens,
                     Temperature = (float)promptTemplate.Configuration.Completion.Temperature,
@@ -158,7 +153,7 @@ namespace Microsoft.Teams.AI.AI.Models
                 PromptResponse promptResponse = new();
                 try
                 {
-                    completionsResponse = await _openAIClient.GetCompletionsAsync(completionsOptions, cancellationToken);
+                    completionsResponse = await this._openAIClient.GetCompletionsAsync(completionsOptions, cancellationToken);
                     rawResponse = completionsResponse.GetRawResponse();
                     promptResponse.Status = PromptResponseStatus.Success;
                     promptResponse.Message = new ChatMessage(ChatRole.Assistant)
@@ -182,20 +177,20 @@ namespace Microsoft.Teams.AI.AI.Models
                     }
                 }
 
-                if (_options.LogRequests!.Value)
+                if (this._options.LogRequests!.Value)
                 {
                     // TODO: Colorize
-                    _logger.LogTrace("RESPONSE:");
-                    _logger.LogTrace($"status {rawResponse!.Status}");
-                    _logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
+                    this._logger.LogTrace("RESPONSE:");
+                    this._logger.LogTrace($"status {rawResponse!.Status}");
+                    this._logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
                     if (promptResponse.Status == PromptResponseStatus.Success)
                     {
-                        _logger.LogTrace(JsonSerializer.Serialize(completionsResponse!.Value));
+                        this._logger.LogTrace(JsonSerializer.Serialize(completionsResponse!.Value));
                     }
                     if (promptResponse.Status == PromptResponseStatus.RateLimited)
                     {
-                        _logger.LogTrace("HEADERS:");
-                        _logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
+                        this._logger.LogTrace("HEADERS:");
+                        this._logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
                     }
                 }
 
@@ -213,20 +208,20 @@ namespace Microsoft.Teams.AI.AI.Models
                         Error = new($"The generated chat completion prompt had a length of {prompt.Length} tokens which exceeded the MaxInputTokens of {maxInputTokens}.")
                     };
                 }
-                if (!_options.UseSystemMessages!.Value && prompt.Output.Count > 0 && prompt.Output[0].Role == ChatRole.System)
+                if (!this._options.UseSystemMessages!.Value && prompt.Output.Count > 0 && prompt.Output[0].Role == ChatRole.System)
                 {
                     prompt.Output[0].Role = ChatRole.User;
                 }
-                if (_options.LogRequests!.Value)
+                if (this._options.LogRequests!.Value)
                 {
                     // TODO: Colorize
-                    _logger.LogTrace("CHAT PROMPT:");
-                    _logger.LogTrace(JsonSerializer.Serialize(prompt.Output));
+                    this._logger.LogTrace("CHAT PROMPT:");
+                    this._logger.LogTrace(JsonSerializer.Serialize(prompt.Output));
                 }
 
                 // Call chat completion API
                 IEnumerable<Azure.AI.OpenAI.ChatMessage> chatMessages = prompt.Output.Select(chatMessage => chatMessage.ToAzureSdkChatMessage());
-                ChatCompletionsOptions chatCompletionsOptions = new(_deploymentName, chatMessages)
+                ChatCompletionsOptions chatCompletionsOptions = new(this._deploymentName, chatMessages)
                 {
                     MaxTokens = maxInputTokens,
                     Temperature = (float)promptTemplate.Configuration.Completion.Temperature,
@@ -240,7 +235,7 @@ namespace Microsoft.Teams.AI.AI.Models
                 PromptResponse promptResponse = new();
                 try
                 {
-                    chatCompletionsResponse = await _openAIClient.GetChatCompletionsAsync(chatCompletionsOptions, cancellationToken);
+                    chatCompletionsResponse = await this._openAIClient.GetChatCompletionsAsync(chatCompletionsOptions, cancellationToken);
                     rawResponse = chatCompletionsResponse.GetRawResponse();
                     promptResponse.Status = PromptResponseStatus.Success;
                     promptResponse.Message = chatCompletionsResponse.Value.Choices[0].Message.ToChatMessage();
@@ -261,20 +256,20 @@ namespace Microsoft.Teams.AI.AI.Models
                     }
                 }
 
-                if (_options.LogRequests!.Value)
+                if (this._options.LogRequests!.Value)
                 {
                     // TODO: Colorize
-                    _logger.LogTrace("RESPONSE:");
-                    _logger.LogTrace($"status {rawResponse!.Status}");
-                    _logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
+                    this._logger.LogTrace("RESPONSE:");
+                    this._logger.LogTrace($"status {rawResponse!.Status}");
+                    this._logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
                     if (promptResponse.Status == PromptResponseStatus.Success)
                     {
-                        _logger.LogTrace(JsonSerializer.Serialize(chatCompletionsResponse!.Value));
+                        this._logger.LogTrace(JsonSerializer.Serialize(chatCompletionsResponse!.Value));
                     }
                     if (promptResponse.Status == PromptResponseStatus.RateLimited)
                     {
-                        _logger.LogTrace("HEADERS:");
-                        _logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
+                        this._logger.LogTrace("HEADERS:");
+                        this._logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
                     }
                 }
 

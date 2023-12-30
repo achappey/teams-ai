@@ -6,8 +6,8 @@
         public IPredictedCommand Command { get; set; }
         public ParsedCommandResult(int length, IPredictedCommand command)
         {
-            Length = length;
-            Command = command;
+            this.Length = length;
+            this.Command = command;
         }
     }
 }

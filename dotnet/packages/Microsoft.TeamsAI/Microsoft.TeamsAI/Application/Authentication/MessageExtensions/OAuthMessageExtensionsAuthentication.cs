@@ -9,11 +9,11 @@ namespace Microsoft.Teams.AI
     /// </summary>
     internal class OAuthMessageExtensionsAuthentication : MessageExtensionsAuthenticationBase
     {
-        private string _oauthConnectionName;
+        private readonly string _oauthConnectionName;
 
         public OAuthMessageExtensionsAuthentication(string oauthConnectionName)
         {
-            _oauthConnectionName = oauthConnectionName;
+            this._oauthConnectionName = oauthConnectionName;
         }
 
         /// <summary>
@@ -23,7 +23,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The sign in link</returns>
         public override async Task<string> GetSignInLink(ITurnContext context)
         {
-            SignInResource signInResource = await UserTokenClientWrapper.GetSignInResourceAsync(context, _oauthConnectionName);
+            SignInResource signInResource = await UserTokenClientWrapper.GetSignInResourceAsync(context, this._oauthConnectionName);
             return signInResource.SignInLink;
         }
 
@@ -35,7 +35,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The token response if successfully verified the magic code</returns>
         public override async Task<TokenResponse> HandleUserSignIn(ITurnContext context, string magicCode)
         {
-            return await UserTokenClientWrapper.GetUserTokenAsync(context, _oauthConnectionName, magicCode);
+            return await UserTokenClientWrapper.GetUserTokenAsync(context, this._oauthConnectionName, magicCode);
         }
 
         /// <summary>
@@ -47,12 +47,9 @@ namespace Microsoft.Teams.AI
         {
             JObject value = JObject.FromObject(context.Activity.Value);
             TokenExchangeRequest? tokenExchangeRequest = value["authentication"]?.ToObject<TokenExchangeRequest>();
-            if (tokenExchangeRequest != null && !string.IsNullOrEmpty(tokenExchangeRequest.Token))
-            {
-                return await UserTokenClientWrapper.ExchangeTokenAsync(context, _oauthConnectionName, tokenExchangeRequest);
-            }
-
-            return new TokenResponse();
+            return tokenExchangeRequest != null && !string.IsNullOrEmpty(tokenExchangeRequest.Token)
+                ? await UserTokenClientWrapper.ExchangeTokenAsync(context, this._oauthConnectionName, tokenExchangeRequest)
+                : new TokenResponse();
         }
     }
 }

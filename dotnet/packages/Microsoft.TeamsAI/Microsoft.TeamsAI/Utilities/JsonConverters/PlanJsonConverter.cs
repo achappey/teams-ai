@@ -7,8 +7,8 @@ namespace Microsoft.Teams.AI.Utilities.JsonConverters
 {
     internal class PlanJsonConverter : JsonConverter<Plan>
     {
-        private static JsonEncodedText _typePropertyName = JsonEncodedText.Encode("type");
-        private static JsonEncodedText _commandsPropertyName = JsonEncodedText.Encode("commands");
+        private static readonly JsonEncodedText _typePropertyName = JsonEncodedText.Encode("type");
+        private static readonly JsonEncodedText _commandsPropertyName = JsonEncodedText.Encode("commands");
 
         public override bool CanConvert(Type objectType)
         {
@@ -82,12 +82,7 @@ namespace Microsoft.Teams.AI.Utilities.JsonConverters
                 }
             };
 
-            if (!typeIsPlan)
-            {
-                return null;
-            }
-
-            return new Plan(commands);
+            return !typeIsPlan ? null : new Plan(commands);
         }
 
 

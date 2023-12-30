@@ -48,8 +48,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public string? ThreadId
         {
-            get => Conversation?.Get<string>("assistants_state_thread_id");
-            set => Conversation?.Set("assistants_state_thread_id", value);
+            get => this.Conversation?.Get<string>("assistants_state_thread_id");
+            set => this.Conversation?.Set("assistants_state_thread_id", value);
         }
 
         /// <summary>
@@ -58,8 +58,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public string? RunId
         {
-            get => Conversation?.Get<string>("assistants_state_run_id");
-            set => Conversation?.Set("assistants_state_run_id", value);
+            get => this.Conversation?.Get<string>("assistants_state_run_id");
+            set => this.Conversation?.Set("assistants_state_run_id", value);
         }
 
         /// <summary>
@@ -68,8 +68,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public string? LastMessageId
         {
-            get => Conversation?.Get<string>("assistants_state_last_message_id");
-            set => Conversation?.Set("assistants_state_last_message_id", value);
+            get => this.Conversation?.Get<string>("assistants_state_last_message_id");
+            set => this.Conversation?.Set("assistants_state_last_message_id", value);
         }
 
         /// <summary>
@@ -78,8 +78,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public bool SubmitToolOutputs
         {
-            get => Temp?.Get<bool>("assistants_state_submit_tool_outputs") ?? false;
-            set => Temp?.Set("assistants_state_submit_tool_outputs", value);
+            get => this.Temp?.Get<bool>("assistants_state_submit_tool_outputs") ?? false;
+            set => this.Temp?.Set("assistants_state_submit_tool_outputs", value);
         }
 
         /// <summary>
@@ -88,8 +88,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public Dictionary<string, string> SubmitToolMap
         {
-            get => Temp?.Get<Dictionary<string, string>>("assistants_state_submit_tool_map") ?? new Dictionary<string, string>();
-            set => Temp?.Set("assistants_state_submit_tool_map", value);
+            get => this.Temp?.Get<Dictionary<string, string>>("assistants_state_submit_tool_map") ?? new Dictionary<string, string>();
+            set => this.Temp?.Set("assistants_state_submit_tool_map", value);
         }
     }
 }

@@ -33,9 +33,9 @@ namespace Microsoft.Teams.AI.AI.Action
         /// <param name="allowOverrides">Whether to allow overrides of this action's properties.</param>
         public ActionEntry(string name, IActionHandler<TState> handler, bool allowOverrides = true)
         {
-            Name = name;
-            Handler = handler;
-            AllowOverrides = allowOverrides;
+            this.Name = name;
+            this.Handler = handler;
+            this.AllowOverrides = allowOverrides;
         }
 
         /// <summary>

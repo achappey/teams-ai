@@ -11,7 +11,7 @@ namespace Microsoft.Teams.AI.State
     public class TurnStateEntry
     {
         private Record _value;
-        private string _hash;
+        private readonly string _hash;
         private static readonly JsonSerializerOptions _serializerOptions = new() { MaxDepth = 64 };
 
         /// <summary>
@@ -22,16 +22,13 @@ namespace Microsoft.Teams.AI.State
         public TurnStateEntry(Record value, string? storageKey = null)
         {
             Verify.ParamNotNull(value);
-            _value = value;
-            StorageKey = storageKey;
-            _hash = ComputeHash(value);
+            this._value = value;
+            this.StorageKey = storageKey;
+            this._hash = ComputeHash(value);
         }
 
         /// <inheritdoc />
-        public bool HasChanged
-        {
-            get { return ComputeHash(_value!) != _hash; }
-        }
+        public bool HasChanged => ComputeHash(this._value!) != this._hash;
 
         /// <inheritdoc />
         public bool IsDeleted { get; private set; } = false;
@@ -41,13 +38,13 @@ namespace Microsoft.Teams.AI.State
         {
             get
             {
-                if (IsDeleted)
+                if (this.IsDeleted)
                 {
-                    _value = new();
-                    IsDeleted = false;
+                    this._value = new();
+                    this.IsDeleted = false;
                 }
 
-                return _value;
+                return this._value;
             }
         }
 
@@ -59,7 +56,7 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public void Delete()
         {
-            IsDeleted = true;
+            this.IsDeleted = true;
         }
 
         /// <summary>
@@ -69,7 +66,7 @@ namespace Microsoft.Teams.AI.State
         public void Replace(Record value)
         {
             Verify.ParamNotNull(value);
-            _value = value;
+            this._value = value;
         }
 
         // TODO: Optimize if possible

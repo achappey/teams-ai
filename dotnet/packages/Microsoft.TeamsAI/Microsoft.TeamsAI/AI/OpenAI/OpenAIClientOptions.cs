@@ -21,7 +21,7 @@
         /// <param name="apiKey">OpenAI API key.</param>
         public OpenAIClientOptions(string apiKey)
         {
-            ApiKey = apiKey;
+            this.ApiKey = apiKey;
         }
     }
 }

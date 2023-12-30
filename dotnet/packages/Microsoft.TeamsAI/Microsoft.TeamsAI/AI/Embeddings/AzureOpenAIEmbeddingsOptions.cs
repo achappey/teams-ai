@@ -25,7 +25,7 @@ namespace Microsoft.Teams.AI.AI.Embeddings
         {
             Verify.ParamNotNull(endpoint);
 
-            Endpoint = endpoint;
+            this.Endpoint = endpoint;
         }
     }
 }

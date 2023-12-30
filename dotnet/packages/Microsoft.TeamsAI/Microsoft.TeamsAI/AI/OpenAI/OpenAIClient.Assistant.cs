@@ -18,6 +18,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         private static readonly IEnumerable<KeyValuePair<string, string>> OpenAIBetaHeaders =
             new List<KeyValuePair<string, string>> { new("OpenAI-Beta", "assistants=v1") }.AsReadOnly();
 
+
         /// <summary>
         /// Create an OpenAI Assistant.
         /// </summary>
@@ -36,7 +37,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     "application/json"
                 );
 
-                using HttpResponseMessage httpResponse = await _ExecutePostRequestAsync(OpenAIAssistantEndpoint, content, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync(OpenAIAssistantEndpoint, content, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Assistant result = JsonSerializer.Deserialize<Assistant>(responseJson) ?? throw new SerializationException($"Failed to deserialize assistant result response json: {responseJson}");
@@ -65,7 +66,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         {
             try
             {
-                using HttpResponseMessage httpResponse = await _ExecuteGetRequestAsync($"{OpenAIAssistantEndpoint}/{assistantId}", null, OpenAIBetaHeaders, cancellationToken);
+                using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIAssistantEndpoint}/{assistantId}", null, OpenAIBetaHeaders, cancellationToken);
 
                 string responseJson = await httpResponse.Content.ReadAsStringAsync();
                 Assistant result = JsonSerializer.Deserialize<Assistant>(responseJson) ?? throw new SerializationException($"Failed to deserialize assistant result response json: {responseJson}");

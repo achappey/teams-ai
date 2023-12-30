@@ -65,7 +65,7 @@ namespace Microsoft.Teams.AI.AI.Planners
         /// <returns>The plan that was generated.</returns>
         public async Task<Plan> BeginTaskAsync(ITurnContext context, TState state, AI<TState> ai, CancellationToken cancellationToken = default)
         {
-            return await ContinueTaskAsync(context, state, ai, cancellationToken);
+            return await this.ContinueTaskAsync(context, state, ai, cancellationToken);
         }
 
         /// <summary>
@@ -95,13 +95,7 @@ namespace Microsoft.Teams.AI.AI.Planners
                 throw new Exception(response.Error?.Message ?? "[Action Planner]: an error has occurred");
             }
 
-            Plan? plan = await template.Augmentation.CreatePlanFromResponseAsync(context, state, response, cancellationToken);
-
-            if (plan == null)
-            {
-                throw new Exception("[Action Planner]: failed to create plan");
-            }
-
+            Plan? plan = await template.Augmentation.CreatePlanFromResponseAsync(context, state, response, cancellationToken) ?? throw new Exception("[Action Planner]: failed to create plan");
             return plan;
         }
 

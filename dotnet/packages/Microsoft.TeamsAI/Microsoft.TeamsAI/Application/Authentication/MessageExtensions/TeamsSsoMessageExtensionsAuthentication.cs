@@ -11,11 +11,11 @@ namespace Microsoft.Teams.AI
     /// </summary>
     internal class TeamsSsoMessageExtensionsAuthentication : MessageExtensionsAuthenticationBase
     {
-        private TeamsSsoSettings _settings;
+        private readonly TeamsSsoSettings _settings;
 
         public TeamsSsoMessageExtensionsAuthentication(TeamsSsoSettings settings)
         {
-            _settings = settings;
+            this._settings = settings;
         }
 
 
@@ -26,7 +26,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The sign in link</returns>
         public override Task<string> GetSignInLink(ITurnContext context)
         {
-            string signInLink = $"{_settings.SignInLink}?scope={Uri.EscapeDataString(string.Join(" ", _settings.Scopes))}&clientId={_settings.MSAL.AppConfig.ClientId}&tenantId={_settings.MSAL.AppConfig.TenantId}";
+            string signInLink = $"{this._settings.SignInLink}?scope={Uri.EscapeDataString(string.Join(" ", this._settings.Scopes))}&clientId={this._settings.MSAL.AppConfig.ClientId}&tenantId={this._settings.MSAL.AppConfig.TenantId}";
 
             return Task.FromResult(signInLink);
         }
@@ -58,8 +58,8 @@ namespace Microsoft.Teams.AI
                 try
                 {
                     string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
-                    AuthenticationResult result = await ((ILongRunningWebApi)_settings.MSAL).InitiateLongRunningProcessInWebApi(
-                    _settings.Scopes,
+                    AuthenticationResult result = await ((ILongRunningWebApi)this._settings.MSAL).InitiateLongRunningProcessInWebApi(
+                    this._settings.Scopes,
                             token.ToString(),
                             ref homeAccountId
                         ).ExecuteAsync();

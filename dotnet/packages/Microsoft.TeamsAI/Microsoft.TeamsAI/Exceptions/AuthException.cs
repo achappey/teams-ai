@@ -38,7 +38,7 @@
         /// <param name="reason">The cause of the exception</param>
         public AuthException(string message, AuthExceptionReason reason = AuthExceptionReason.Other) : base(message)
         {
-            Cause = reason;
+            this.Cause = reason;
         }
     }
 }

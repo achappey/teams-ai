@@ -48,9 +48,9 @@
         /// <param name="moderate">Which parts of the conversation to moderate.</param>
         public AzureContentSafetyModeratorOptions(string apiKey, string endpoint, ModerationType moderate)
         {
-            ApiKey = apiKey;
-            Endpoint = endpoint;
-            Moderate = moderate;
+            this.ApiKey = apiKey;
+            this.Endpoint = endpoint;
+            this.Moderate = moderate;
         }
     }
 }

@@ -11,7 +11,7 @@ namespace Microsoft.Teams.AI
     internal class OAuthBotAuthentication<TState> : BotAuthenticationBase<TState>
         where TState : TurnState, new()
     {
-        private OAuthPrompt _oauthPrompt;
+        private readonly OAuthPrompt _oauthPrompt;
 
         /// <summary>
         /// Initializes the class
@@ -66,7 +66,7 @@ namespace Microsoft.Teams.AI
         {
             IStatePropertyAccessor<DialogState> accessor = new TurnStateProperty<DialogState>(state, "conversation", dialogStateProperty);
             DialogSet dialogSet = new(accessor);
-            dialogSet.Add(_oauthPrompt);
+            dialogSet.Add(this._oauthPrompt);
             return await dialogSet.CreateContextAsync(context, cancellationToken);
         }
     }

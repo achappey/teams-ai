@@ -27,7 +27,7 @@ namespace Microsoft.Teams.AI.AI.Planners
         [JsonConstructor]
         public PredictedSayCommand(string response)
         {
-            Response = response;
+            this.Response = response;
         }
 
         /// <summary>

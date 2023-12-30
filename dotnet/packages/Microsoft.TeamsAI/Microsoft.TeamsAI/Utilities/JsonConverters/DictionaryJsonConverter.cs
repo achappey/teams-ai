@@ -35,12 +35,7 @@ namespace Microsoft.Teams.AI.Utilities.JsonConverters
                     throw new JsonException();
                 }
 
-                string? key = reader.GetString();
-
-                if (key == null)
-                {
-                    throw new JsonException();
-                }
+                string? key = reader.GetString() ?? throw new JsonException();
 
                 // Get the value.
                 reader.Read();

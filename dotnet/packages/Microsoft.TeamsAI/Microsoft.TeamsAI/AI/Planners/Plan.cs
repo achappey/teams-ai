@@ -33,7 +33,7 @@ namespace Microsoft.Teams.AI.AI.Planners
         /// </summary>
         public Plan()
         {
-            Commands = new List<IPredictedCommand>();
+            this.Commands = new List<IPredictedCommand>();
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Microsoft.Teams.AI.AI.Planners
         [JsonConstructor]
         public Plan(List<IPredictedCommand> commands)
         {
-            Commands = commands;
+            this.Commands = commands;
         }
 
         /// <summary>

@@ -41,8 +41,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(apiKey);
             Verify.ParamNotNull(assistantId);
 
-            ApiKey = apiKey;
-            AssistantId = assistantId;
+            this.ApiKey = apiKey;
+            this.AssistantId = assistantId;
         }
     }
 }

@@ -33,11 +33,7 @@ namespace Microsoft.Teams.AI
 
         private static UserTokenClient GetUserTokenClient(ITurnContext context)
         {
-            UserTokenClient userTokenClient = context.TurnState.Get<UserTokenClient>();
-            if (userTokenClient == null)
-            {
-                throw new TeamsAIException("OAuth Connection is not supported by the current adapter");
-            }
+            UserTokenClient userTokenClient = context.TurnState.Get<UserTokenClient>() ?? throw new TeamsAIException("OAuth Connection is not supported by the current adapter");
             return userTokenClient;
         }
     }

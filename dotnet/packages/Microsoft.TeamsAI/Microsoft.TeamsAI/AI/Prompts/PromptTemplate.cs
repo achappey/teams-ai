@@ -135,13 +135,7 @@ namespace Microsoft.Teams.AI.AI.Prompts
             PromptTemplateConfiguration? result = JsonSerializer.Deserialize<PromptTemplateConfiguration>(json, new JsonSerializerOptions()
             {
                 WriteIndented = true
-            });
-
-            if (result == null)
-            {
-                throw new SerializationException("Failed to deserialize prompt configuration JSON string");
-            }
-
+            }) ?? throw new SerializationException("Failed to deserialize prompt configuration JSON string");
             return result;
         }
     }

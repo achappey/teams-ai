@@ -8,7 +8,7 @@ namespace Microsoft.Teams.AI.AI.Models
     /// </summary>
     internal class SequentialDelayStrategy : DelayStrategy
     {
-        private List<TimeSpan> _delays;
+        private readonly List<TimeSpan> _delays;
 
         public SequentialDelayStrategy(List<TimeSpan> delays)
         {
@@ -18,7 +18,7 @@ namespace Microsoft.Teams.AI.AI.Models
         protected override TimeSpan GetNextDelayCore(Response? response, int retryNumber)
         {
             int index = retryNumber - 1;
-            return index >= _delays.Count ? _delays[_delays.Count - 1] : _delays[index];
+            return index >= this._delays.Count ? this._delays[this._delays.Count - 1] : this._delays[index];
         }
     }
 }

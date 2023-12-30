@@ -32,21 +32,21 @@ namespace Microsoft.Teams.AI
                 throw new TeamsAIException("Authentications setting is empty");
             }
 
-            _authentications = new Dictionary<string, IAuthentication<TState>>();
+            this._authentications = new Dictionary<string, IAuthentication<TState>>();
 
             // If developer does not specify default authentication, set default to the first one in the options
-            Default = options.Default ?? options._authenticationSettings.First().Key;
+            this.Default = options.Default ?? options._authenticationSettings.First().Key;
 
             foreach (string key in options._authenticationSettings.Keys)
             {
                 object setting = options._authenticationSettings[key];
                 if (setting is OAuthSettings oauthSetting)
                 {
-                    _authentications.Add(key, new OAuthAuthentication<TState>(app, key, oauthSetting, storage));
+                    this._authentications.Add(key, new OAuthAuthentication<TState>(app, key, oauthSetting, storage));
                 }
                 else if (setting is TeamsSsoSettings teamsSsoSettings)
                 {
-                    _authentications.Add(key, new TeamsSsoAuthentication<TState>(app, key, teamsSsoSettings, storage));
+                    this._authentications.Add(key, new TeamsSsoAuthentication<TState>(app, key, teamsSsoSettings, storage));
                 }
             }
         }
@@ -63,10 +63,10 @@ namespace Microsoft.Teams.AI
         {
             if (settingName == null)
             {
-                settingName = Default;
+                settingName = this.Default;
             }
 
-            IAuthentication<TState> auth = Get(settingName);
+            IAuthentication<TState> auth = this.Get(settingName);
             string? token;
             try
             {
@@ -106,10 +106,10 @@ namespace Microsoft.Teams.AI
         {
             if (settingName == null)
             {
-                settingName = Default;
+                settingName = this.Default;
             }
 
-            IAuthentication<TState> auth = Get(settingName);
+            IAuthentication<TState> auth = this.Get(settingName);
             await auth.SignOutUserAsync(context, state, cancellationToken);
             AuthUtilities.DeleteTokenFromState(state, settingName);
         }
@@ -122,12 +122,9 @@ namespace Microsoft.Teams.AI
         /// <exception cref="TeamsAIException">When cannot find the class with given name</exception>
         public IAuthentication<TState> Get(string name)
         {
-            if (_authentications.ContainsKey(name))
-            {
-                return _authentications[name];
-            }
-
-            throw new TeamsAIException($"Could not find authentication handler with name '{name}'.");
+            return this._authentications.ContainsKey(name)
+                ? this._authentications[name]
+                : throw new TeamsAIException($"Could not find authentication handler with name '{name}'.");
         }
     }
 }

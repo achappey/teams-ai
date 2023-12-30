@@ -47,14 +47,7 @@ namespace Microsoft.Teams.AI.State
         {
             Verify.ParamNotNull(key);
 
-            if (TryGetValue(key, out T value))
-            {
-                return value;
-            }
-            else
-            {
-                return default;
-            };
+            return this.TryGetValue(key, out T value) ? value : default; ;
         }
 
         /// <summary>

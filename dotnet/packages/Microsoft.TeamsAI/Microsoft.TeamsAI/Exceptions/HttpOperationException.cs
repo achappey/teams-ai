@@ -25,8 +25,8 @@ namespace Microsoft.Teams.AI.Exceptions
         /// <param name="responseContent">The HTTP response content.</param>
         public HttpOperationException(string message, HttpStatusCode? httpStatusCode = null, string? responseContent = null) : base(message)
         {
-            StatusCode = httpStatusCode;
-            ResponseContent = responseContent;
+            this.StatusCode = httpStatusCode;
+            this.ResponseContent = responseContent;
         }
 
         /// <summary>
@@ -36,7 +36,7 @@ namespace Microsoft.Teams.AI.Exceptions
         internal bool isHttpErrorStatusCode()
         {
             // HttpStatusCode.TooManyRequests is not available in .NET Standard 2.0, this is a workaround.
-            return StatusCode == (HttpStatusCode)429;
+            return this.StatusCode == (HttpStatusCode)429;
         }
     }
 }

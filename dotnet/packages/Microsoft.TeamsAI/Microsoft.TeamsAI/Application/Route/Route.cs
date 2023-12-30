@@ -27,23 +27,23 @@ namespace Microsoft.Teams.AI
     {
         public Route(RouteSelectorAsync selector, bool isInvokeRoute = false)
         {
-            Selector = selector;
-            Handler = (_, _, _) => Task.CompletedTask;
-            IsInvokeRoute = isInvokeRoute;
+            this.Selector = selector;
+            this.Handler = (_, _, _) => Task.CompletedTask;
+            this.IsInvokeRoute = isInvokeRoute;
         }
 
         public Route(RouteHandler<TState> handler, bool isInvokeRoute = false)
         {
-            Selector = (_, _) => Task.FromResult(true);
-            Handler = handler;
-            IsInvokeRoute = isInvokeRoute;
+            this.Selector = (_, _) => Task.FromResult(true);
+            this.Handler = handler;
+            this.IsInvokeRoute = isInvokeRoute;
         }
 
         public Route(RouteSelectorAsync selector, RouteHandler<TState> handler, bool isInvokeRoute = false)
         {
-            Selector = selector;
-            Handler = handler;
-            IsInvokeRoute = isInvokeRoute;
+            this.Selector = selector;
+            this.Handler = handler;
+            this.IsInvokeRoute = isInvokeRoute;
         }
 
         public RouteSelectorAsync Selector { get; private set; }

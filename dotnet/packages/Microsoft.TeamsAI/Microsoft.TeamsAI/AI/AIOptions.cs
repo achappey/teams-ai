@@ -64,7 +64,7 @@ namespace Microsoft.Teams.AI.AI
         {
             Verify.ParamNotNull(planner);
 
-            Planner = planner;
+            this.Planner = planner;
         }
     }
 }

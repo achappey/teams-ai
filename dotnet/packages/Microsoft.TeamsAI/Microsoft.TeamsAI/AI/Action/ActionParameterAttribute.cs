@@ -12,7 +12,7 @@
 
         internal ActionParameterAttribute(ActionParameterType actionParameterType)
         {
-            ActionParameterType = actionParameterType;
+            this.ActionParameterType = actionParameterType;
         }
     }
 
