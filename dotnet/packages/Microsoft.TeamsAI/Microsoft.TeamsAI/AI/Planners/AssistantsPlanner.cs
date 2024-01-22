@@ -205,43 +205,96 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                         plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
                     }
 
-                    foreach (TextAnnotation annotation in content.Text?.Annotations ?? new List<TextAnnotation>())
+                    if (string.Equals(content.Type, "image_file"))
                     {
-                        if (annotation.FileCitation != null && !string.IsNullOrEmpty(annotation.FileCitation.FileId))
+                        if (content.ImageFile?.FileId != null)
                         {
-                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FileCitation.FileId);
+                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(content.ImageFile.FileId);
+                            byte[] fileContent = await this._openAIClient.RetrieveFileContentAsync(content.ImageFile.FileId);
+
+                            plan.Commands.Add(new PredictedDoCommand(content.Type,
+                                     new Dictionary<string, object?>() {
+                                    {"file_id", content.ImageFile?.FileId},
+                                    {"filename", file.Filename},
+                                    {"fileContent", fileContent}
+                                         }));
+                        }
+                    }
+
+                    IEnumerable<TextAnnotation>? citations = content.Text?.Annotations.Where(t => t.Type == "file_citation");
+                    IEnumerable<GroupedTextAnnotation>? groupedCitations = citations?.GroupBy(y => y.Text).Select(y => new GroupedTextAnnotation()
+                    {
+                        Text = y.Key,
+                        Ranges = y.Select(z => $"{z.StartIndex}-{z.EndIndex}"),
+                        FileCitation = y.FirstOrDefault().FileCitation
+                    });
+
+                    if (groupedCitations != null)
+                    {
+                        foreach (GroupedTextAnnotation annotation in groupedCitations)
+                        {
+                            if (annotation.FileCitation != null && !string.IsNullOrEmpty(annotation.FileCitation.FileId))
+                            {
+                                OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FileCitation.FileId);
+
+                                plan.Commands.Add(new PredictedDoCommand("file_citation",
+                                    new Dictionary<string, object?>() {
+                                    {"text", annotation.Text},
+                                    {"ranges", string.Join(", ", annotation.Ranges)},
+                                    {"file_id", annotation.FileCitation?.FileId},
+                                    {"filename", file.Filename},
+                                    {"quote", annotation.FileCitation?.Quote}
+                                        }));
+                            }
+                        }
+                    }
+
+                    IEnumerable<TextAnnotation>? filePaths = content.Text?.Annotations?.Where(t => t.Type == "file_path");
+
+                    foreach (TextAnnotation annotation in filePaths ?? new List<TextAnnotation>())
+                    {
+                        if (annotation.FilePath != null && !string.IsNullOrEmpty(annotation.FilePath.FileId))
+                        {
+                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FilePath.FileId);
+                            byte[] fileContent = await this._openAIClient.RetrieveFileContentAsync(annotation.FilePath.FileId);
 
                             plan.Commands.Add(new PredictedDoCommand(annotation.Type,
                                 new Dictionary<string, object?>() {
                                     {"text", annotation.Text},
                                     {"start_index", annotation.StartIndex},
                                     {"end_index", annotation.EndIndex},
-                                    {"file_id", annotation.FileCitation?.FileId},
-                                    {"filename", file.Filename},
-                                    {"quote", annotation.FileCitation?.Quote}
+                                    {"file_id", annotation.FilePath?.FileId},
+                                    {"filename", Path.GetFileName(file.Filename)},
+                                    {"fileContent", fileContent}
                                     }));
                         }
                     }
 
-
                 }
             }
+
             return plan;
         }
 
         private Plan _GeneratePlanFromTools(TState state, RequiredAction requiredAction)
         {
             Plan plan = new();
-            Dictionary<string, string> toolMap = new();
+            Dictionary<string, List<string>> toolMap = new();
             foreach (ToolCall toolCall in requiredAction.SubmitToolOutputs.ToolCalls)
             {
-                toolMap[toolCall.Function.Name] = toolCall.Id;
+                // toolMap[toolCall.Function.Name] = toolCall.Id;
+                if (!toolMap.ContainsKey(toolCall.Function.Name))
+                {
+                    toolMap[toolCall.Function.Name] = new List<string>();
+                }
+                toolMap[toolCall.Function.Name].Add(toolCall.Id);
                 plan.Commands.Add(new PredictedDoCommand
                 (
                     toolCall.Function.Name,
                     JsonSerializer.Deserialize<Dictionary<string, object?>>(toolCall.Function.Arguments)
                     ?? new Dictionary<string, object?>()
-                ));
+                )
+                { ToolCallId = toolCall.Id });
             }
             state.SubmitToolMap = toolMap;
             return plan;
@@ -251,14 +304,18 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         {
             // Map the action outputs to tool outputs
             List<ToolOutput> toolOutputs = new();
-            Dictionary<string, string> toolMap = state.SubmitToolMap;
-            foreach (KeyValuePair<string, string> requiredAction in toolMap)
+            Dictionary<string, List<string>> toolMap = state.SubmitToolMap;
+            foreach (KeyValuePair<string, List<string>> requiredAction in toolMap)
             {
-                toolOutputs.Add(new()
+                foreach (string value in requiredAction.Value)
                 {
-                    ToolCallId = requiredAction.Value,
-                    Output = state.Temp!.ActionOutputs.ContainsKey(requiredAction.Key) ? state.Temp!.ActionOutputs[requiredAction.Key] : string.Empty
-                });
+                    toolOutputs.Add(new()
+                    {
+                        ToolCallId = value,
+                        Output = state.Temp!.ActionOutputs.ContainsKey(value) ? state.Temp!.ActionOutputs[value]
+                            : state.Temp!.ActionOutputs.ContainsKey(requiredAction.Key) ? state.Temp!.ActionOutputs[requiredAction.Key] : string.Empty
+                    });
+                }
             }
 
             // Submit the tool outputs
@@ -295,12 +352,16 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
             {
                 Content = state.Temp?.Input ?? string.Empty,
+                FileIds = state.Files.Any() ? state.Files : null
             }, cancellationToken);
 
             // Create a new run
-            Run run = await this._openAIClient.CreateRunAsync(threadId, new()
+            Run run = await this._openAIClient.CreateRunAsync(threadId, new RunCreateParams()
             {
-                AssistantId = this._options.AssistantId,
+                Model = state.Model,
+                AssistantId = state.AssistantId != null && !string.IsNullOrEmpty(state.AssistantId) ? state.AssistantId : this._options.AssistantId,
+                AdditionalInstructions = !string.IsNullOrEmpty(state.Temp?.AdditionalInstructions) ? state.Temp?.AdditionalInstructions : null,
+                Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null
             }, cancellationToken);
 
             // Update state and wait for the run to complete

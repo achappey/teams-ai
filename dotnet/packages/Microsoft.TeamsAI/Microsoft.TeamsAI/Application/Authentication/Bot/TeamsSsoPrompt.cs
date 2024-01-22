@@ -10,37 +10,28 @@ namespace Microsoft.Teams.AI
 {
     internal class TeamsSsoPrompt : Dialog
     {
+        protected IConfidentialClientApplicationAdapter _msalAdapter;
+
         private const string _expiresKey = "expires";
-        private readonly string _name;
-        private readonly TeamsSsoSettings _settings;
+        private string _name;
+        private TeamsSsoSettings _settings;
 
         public TeamsSsoPrompt(string dialogId, string name, TeamsSsoSettings settings)
             : base(dialogId)
         {
-            this._name = name;
-            this._settings = settings;
+            _name = name;
+            _settings = settings;
+            _msalAdapter = new ConfidentialClientApplicationAdapter(settings.MSAL);
         }
 
         public override async Task<DialogTurnResult> BeginDialogAsync(DialogContext dc, object options, CancellationToken cancellationToken)
         {
-            int timeout = this._settings.Timeout;
+            int timeout = _settings.Timeout;
 
             IDictionary<string, object> state = dc.ActiveDialog.State;
             state[_expiresKey] = DateTime.Now.AddMilliseconds(timeout);
 
-            AuthenticationResult? token = await this.TryGetUserToken(dc.Context);
-            if (token != null)
-            {
-                TokenResponse tokenResponse = new()
-                {
-                    ConnectionName = "", // No connection name is available in this implementation
-                    Token = token.AccessToken,
-                    Expiration = token.ExpiresOn.ToString("o")
-                };
-                return await dc.EndDialogAsync(tokenResponse);
-            }
-
-            // Cannot get token from cache, send OAuth card to get SSO token
+            // Send OAuth card to get SSO token
             await this.SendOAuthCardToObtainTokenAsync(dc.Context, cancellationToken);
             return EndOfTurn;
         }
@@ -49,11 +40,11 @@ namespace Microsoft.Teams.AI
         {
             // Check for timeout
             IDictionary<string, object> state = dc.ActiveDialog.State;
-            bool isMessage = dc.Context.Activity.Type == ActivityTypes.Message;
+            bool isMessage = (dc.Context.Activity.Type == ActivityTypes.Message);
             bool isTimeoutActivityType =
               isMessage ||
-              this.IsTeamsVerificationInvoke(dc.Context) ||
-              this.IsTokenExchangeRequestInvoke(dc.Context);
+              IsTeamsVerificationInvoke(dc.Context) ||
+              IsTokenExchangeRequestInvoke(dc.Context);
 
             // If the incoming Activity is a message, or an Activity Type normally handled by TeamsBotSsoPrompt,
             // check to see if this TeamsBotSsoPrompt Expiration has elapsed, and end the dialog if so.
@@ -64,17 +55,17 @@ namespace Microsoft.Teams.AI
             }
             else
             {
-                if (this.IsTeamsVerificationInvoke(dc.Context) || this.IsTokenExchangeRequestInvoke(dc.Context))
+                if (IsTeamsVerificationInvoke(dc.Context) || IsTokenExchangeRequestInvoke(dc.Context))
                 {
                     // Recognize token
-                    PromptRecognizerResult<TokenResponse> recognized = await this.RecognizeTokenAsync(dc, cancellationToken).ConfigureAwait(false);
+                    PromptRecognizerResult<TokenResponse> recognized = await RecognizeTokenAsync(dc, cancellationToken).ConfigureAwait(false);
 
                     if (recognized.Succeeded)
                     {
                         return await dc.EndDialogAsync(recognized.Value, cancellationToken).ConfigureAwait(false);
                     }
                 }
-                else if (isMessage && this._settings.EndOnInvalidMessage)
+                else if (isMessage && _settings.EndOnInvalidMessage)
                 {
                     return await dc.EndDialogAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
                 }
@@ -90,7 +81,7 @@ namespace Microsoft.Teams.AI
             PromptRecognizerResult<TokenResponse> result = new();
             TokenResponse? tokenResponse = null;
 
-            if (this.IsTokenExchangeRequestInvoke(context))
+            if (IsTokenExchangeRequestInvoke(context))
             {
                 JObject? tokenResponseObject = context.Activity.Value as JObject;
                 string? ssoToken = tokenResponseObject?.ToObject<TokenExchangeInvokeRequest>()?.Token;
@@ -106,11 +97,7 @@ namespace Microsoft.Teams.AI
                     try
                     {
                         string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
-                        AuthenticationResult exchangedToken = await ((ILongRunningWebApi)this._settings.MSAL).InitiateLongRunningProcessInWebApi(
-                                this._settings.Scopes,
-                                ssoToken,
-                                ref homeAccountId
-                            ).ExecuteAsync();
+                        AuthenticationResult exchangedToken = await _msalAdapter.InitiateLongRunningProcessInWebApi(_settings.Scopes, ssoToken!, ref homeAccountId);
 
                         tokenResponse = new TokenResponse
                         {
@@ -136,9 +123,9 @@ namespace Microsoft.Teams.AI
                     }
                 }
             }
-            else if (this.IsTeamsVerificationInvoke(context))
+            else if (IsTeamsVerificationInvoke(context))
             {
-                await this.SendOAuthCardToObtainTokenAsync(context, cancellationToken).ConfigureAwait(false);
+                await SendOAuthCardToObtainTokenAsync(context, cancellationToken).ConfigureAwait(false);
                 await SendInvokeResponseAsync(context, HttpStatusCode.OK, null, cancellationToken).ConfigureAwait(false);
             }
 
@@ -156,18 +143,18 @@ namespace Microsoft.Teams.AI
 
         private async Task SendOAuthCardToObtainTokenAsync(ITurnContext context, CancellationToken cancellationToken)
         {
-            SignInResource signInResource = this.GetSignInResource();
+            SignInResource signInResource = GetSignInResource();
 
             // Ensure prompt initialized
             IMessageActivity prompt = Activity.CreateMessageActivity();
-            prompt.Attachments = new List<Attachment>
+            prompt.Attachments = new List<Attachment>();
+            prompt.Attachments.Add(new Attachment
             {
-                new() {
-                    ContentType = OAuthCard.ContentType,
-                    Content = new OAuthCard
-                    {
-                        Text = "Sign In",
-                        Buttons = new[]
+                ContentType = OAuthCard.ContentType,
+                Content = new OAuthCard
+                {
+                    Text = "Sign In",
+                    Buttons = new[]
                     {
                             new CardAction
                             {
@@ -176,40 +163,27 @@ namespace Microsoft.Teams.AI
                                     Type = ActionTypes.Signin,
                             },
                         },
-                        TokenExchangeResource = signInResource.TokenExchangeResource,
-                    },
-                }
-            };
+                    TokenExchangeResource = signInResource.TokenExchangeResource,
+                },
+            });
             // Send prompt
             await context.SendActivityAsync(prompt, cancellationToken).ConfigureAwait(false);
         }
 
         private SignInResource GetSignInResource()
         {
-            string signInLink = $"{this._settings.SignInLink}?scope={Uri.EscapeDataString(string.Join(" ", this._settings.Scopes))}&clientId={this._settings.MSAL.AppConfig.ClientId}&tenantId={this._settings.MSAL.AppConfig.TenantId}";
+            string signInLink = $"{_settings.SignInLink}?scope={Uri.EscapeDataString(string.Join(" ", _settings.Scopes))}&clientId={_msalAdapter.AppConfig.ClientId}&tenantId={_msalAdapter.AppConfig.TenantId}";
 
             SignInResource signInResource = new()
             {
                 SignInLink = signInLink,
                 TokenExchangeResource = new TokenExchangeResource
                 {
-                    Id = $"{Guid.NewGuid()}-{this._name}"
+                    Id = $"{Guid.NewGuid()}-{_name}"
                 }
             };
 
             return signInResource;
-        }
-
-        private async Task<AuthenticationResult?> TryGetUserToken(ITurnContext context)
-        {
-            string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
-            IAccount account = await this._settings.MSAL.GetAccountAsync(homeAccountId);
-            if (account != null)
-            {
-                AuthenticationResult result = await this._settings.MSAL.AcquireTokenSilent(this._settings.Scopes, account).ExecuteAsync();
-                return result;
-            }
-            return null; // Return empty indication no token found in cache
         }
 
         private bool IsTeamsVerificationInvoke(ITurnContext context)

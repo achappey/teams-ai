@@ -15,8 +15,8 @@ namespace Microsoft.Teams.AI
         where TState : TurnState, new()
     {
         private const string SSO_DIALOG_ID = "_TeamsSsoDialog";
-        private readonly Regex _tokenExchangeIdRegex;
-        private readonly TeamsSsoPrompt _prompt;
+        private Regex _tokenExchangeIdRegex;
+        protected TeamsSsoPrompt _prompt;
 
         /// <summary>
         /// Initializes the class
@@ -87,13 +87,19 @@ namespace Microsoft.Teams.AI
             TurnStateProperty<DialogState> accessor = new(state, "conversation", dialogStateProperty);
             DialogSet dialogSet = new(accessor);
             WaterfallDialog ssoDialog = new(SSO_DIALOG_ID);
+
             dialogSet.Add(this._prompt);
             dialogSet.Add(new WaterfallDialog(SSO_DIALOG_ID, new WaterfallStep[]
             {
                 async (step, cancellationToken) => await step.BeginDialogAsync(this._prompt.Id),
                 async (step, cancellationToken) =>
                 {
-                    if (step.Result is TokenResponse tokenResponse && await this.ShouldDedup(context))
+                    return await step.BeginDialogAsync(this._prompt.Id);
+                },
+                async (step, cancellationToken) =>
+                {
+                    TokenResponse? tokenResponse = step.Result as TokenResponse;
+                    if (tokenResponse != null && await ShouldDedup(context))
                     {
                         state.Temp.DuplicateTokenExchange = true;
                         return Dialog.EndOfTurn;

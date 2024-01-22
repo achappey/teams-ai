@@ -71,7 +71,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            RouteHandler<TState> routeHandler = async (ITurnContext turnContext, TState turnState, CancellationToken cancellationToken) =>
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 TaskModuleAction? taskModuleAction;
                 if (!string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
@@ -89,7 +89,7 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity(result);
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
+            }
 
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this._app;
@@ -172,7 +172,7 @@ namespace Microsoft.Teams.AI
         {
             Verify.ParamNotNull(routeSelector);
             Verify.ParamNotNull(handler);
-            RouteHandler<TState> routeHandler = async (ITurnContext turnContext, TState turnState, CancellationToken cancellationToken) =>
+            async Task routeHandler(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 TaskModuleAction? taskModuleAction;
                 if (!string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
@@ -190,7 +190,7 @@ namespace Microsoft.Teams.AI
                     Activity activity = ActivityUtilities.CreateInvokeResponseActivity(result);
                     await turnContext.SendActivityAsync(activity, cancellationToken);
                 }
-            };
+            }
 
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: true);
             return this._app;
@@ -234,7 +234,7 @@ namespace Microsoft.Teams.AI
 
         private static RouteSelectorAsync CreateTaskSelector(Func<string, bool> isMatch, string filter, string invokeName)
         {
-            RouteSelectorAsync routeSelector = (ITurnContext turnContext, CancellationToken cancellationToken) =>
+            Task<bool> routeSelector(ITurnContext turnContext, CancellationToken cancellationToken)
             {
                 bool isInvoke = string.Equals(turnContext.Activity.Type, ActivityTypes.Invoke, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(turnContext.Activity.Name, invokeName);
@@ -259,7 +259,7 @@ namespace Microsoft.Teams.AI
                 && isMatch(filterField.Value<string>()!);
 
                 return Task.FromResult(isVerbMatch);
-            };
+            }
             return routeSelector;
         }
     }

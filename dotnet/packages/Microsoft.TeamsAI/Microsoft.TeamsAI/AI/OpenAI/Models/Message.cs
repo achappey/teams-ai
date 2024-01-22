@@ -49,7 +49,13 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
 
         [JsonPropertyName("image_file")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public object? ImageFile { get; set; }
+        public MessageImageFile? ImageFile { get; set; }
+    }
+
+    internal class MessageImageFile
+    {
+        [JsonPropertyName("file_id")]
+        public string FileId { get; set; } = string.Empty;
     }
 
     internal class MessageContentText
@@ -59,6 +65,18 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
 
         [JsonPropertyName("annotations")]
         public List<TextAnnotation>? Annotations { get; set; }
+    }
+
+    internal class GroupedTextAnnotation
+    {
+        [JsonPropertyName("text")]
+        public string Text { get; set; } = string.Empty;
+
+        [JsonPropertyName("ranges")]
+        public IEnumerable<string>? Ranges { get; set; }
+
+        [JsonPropertyName("file_citation")]
+        public FileCitation? FileCitation { get; set; }
     }
 
     internal class TextAnnotation
@@ -77,6 +95,15 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
 
         [JsonPropertyName("file_citation")]
         public FileCitation? FileCitation { get; set; }
+
+        [JsonPropertyName("file_path")]
+        public FilePath? FilePath { get; set; }
+    }
+
+    internal class FilePath
+    {
+        [JsonPropertyName("file_id")]
+        public string FileId { get; set; } = string.Empty;
     }
 
     internal class FileCitation

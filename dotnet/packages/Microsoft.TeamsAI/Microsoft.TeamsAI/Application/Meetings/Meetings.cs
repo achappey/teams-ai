@@ -32,17 +32,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnStart(MeetingStartHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(Bot.Builder.ITurnContext context, CancellationToken _) => Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Event, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.ChannelId, Channels.Msteams)
                 && string.Equals(context.Activity?.Name, "application/vnd.microsoft.meetingStart")
             );
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(Bot.Builder.ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 MeetingStartEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingStartEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
-            };
+            }
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
             return this._app;
         }
@@ -55,17 +55,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnEnd(MeetingEndHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(Bot.Builder.ITurnContext context, CancellationToken _) => Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Event, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.ChannelId, Channels.Msteams)
                 && string.Equals(context.Activity?.Name, "application/vnd.microsoft.meetingEnd")
             );
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(Bot.Builder.ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 MeetingEndEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingEndEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
-            };
+            }
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
             return this._app;
         }
@@ -78,17 +78,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnParticipantsJoin(MeetingParticipantsEventHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(Bot.Builder.ITurnContext context, CancellationToken _) => Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Event, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.ChannelId, Channels.Msteams)
                 && string.Equals(context.Activity?.Name, "application/vnd.microsoft.meetingParticipantJoin")
             );
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(Bot.Builder.ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 MeetingParticipantsEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingParticipantsEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
-            };
+            }
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
             return this._app;
         }
@@ -101,17 +101,17 @@ namespace Microsoft.Teams.AI
         public Application<TState> OnParticipantsLeave(MeetingParticipantsEventHandler<TState> handler)
         {
             Verify.ParamNotNull(handler);
-            RouteSelectorAsync routeSelector = (context, _) => Task.FromResult
+            Task<bool> routeSelector(Bot.Builder.ITurnContext context, CancellationToken _) => Task.FromResult
             (
                 string.Equals(context.Activity?.Type, ActivityTypes.Event, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(context.Activity?.ChannelId, Channels.Msteams)
                 && string.Equals(context.Activity?.Name, "application/vnd.microsoft.meetingParticipantLeave")
             );
-            RouteHandler<TState> routeHandler = async (turnContext, turnState, cancellationToken) =>
+            async Task routeHandler(Bot.Builder.ITurnContext turnContext, TState turnState, CancellationToken cancellationToken)
             {
                 MeetingParticipantsEventDetails meeting = ActivityUtilities.GetTypedValue<MeetingParticipantsEventDetails>(turnContext.Activity) ?? new();
                 await handler(turnContext, turnState, meeting, cancellationToken);
-            };
+            }
             this._app.AddRoute(routeSelector, routeHandler, isInvokeRoute: false);
             return this._app;
         }

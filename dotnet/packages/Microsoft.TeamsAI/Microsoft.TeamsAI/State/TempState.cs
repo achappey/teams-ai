@@ -11,9 +11,9 @@ namespace Microsoft.Teams.AI.State
     {
 
         /// <summary>
-        /// Name of the file ids property.
+        /// Name of the input property.
         /// </summary>
-        public const string FileIdsKey = "fileIds";
+        public const string AdditionalInstructionsKey = "additionalInstructions";
 
         /// <summary>
         /// Name of the input property.
@@ -46,7 +46,7 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public TempState() : base()
         {
-            this[FileIdsKey] = new List<string>();
+            this[AdditionalInstructionsKey] = string.Empty;
             this[InputKey] = string.Empty;
             this[OutputKey] = string.Empty;
             this[ActionOutputsKey] = new Dictionary<string, string>();
@@ -55,12 +55,12 @@ namespace Microsoft.Teams.AI.State
         }
 
         /// <summary>
-        /// File ids passed to an AI prompt
+        /// Additional instructions passed to an AI run
         /// </summary>
-        public List<string> FileIds
+        public string AdditionalInstructions
         {
-            get => this.Get<List<string>>(FileIdsKey)!;
-            set => this.Set(FileIdsKey, value);
+            get => this.Get<string>(AdditionalInstructionsKey)!;
+            set => this.Set(AdditionalInstructionsKey, value);
         }
 
         /// <summary>

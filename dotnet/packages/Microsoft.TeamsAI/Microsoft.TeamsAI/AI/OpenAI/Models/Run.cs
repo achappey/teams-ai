@@ -121,6 +121,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Instructions { get; set; }
 
+        [JsonPropertyName("additional_instructions")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? AdditionalInstructions { get; set; }
+
         [JsonPropertyName("metadata")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, object>? Metadata { get; set; }

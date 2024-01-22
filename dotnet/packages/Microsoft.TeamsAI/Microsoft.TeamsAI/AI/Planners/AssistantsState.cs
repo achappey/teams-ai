@@ -1,4 +1,5 @@
-﻿using Microsoft.Teams.AI.State;
+﻿using Microsoft.Teams.AI.AI.OpenAI.Models;
+using Microsoft.Teams.AI.State;
 
 // Assistants API is currently in beta and is subject to change.
 #pragma warning disable IDE0130 // Namespace does not match folder structure
@@ -34,7 +35,28 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// <summary>
         /// Get or set the submit tool map.
         /// </summary>
-        Dictionary<string, string> SubmitToolMap { get; set; }
+        Dictionary<string, List<string>> SubmitToolMap { get; set; }
+
+        /// <summary>
+        /// Get or set the files.
+        /// </summary>
+        List<string> Files { get; set; }
+
+        /// <summary>
+        /// Get or set the model.
+        /// </summary>
+        string? Model { get; set; }
+
+        /// <summary>
+        /// Get or set the assistant ID.
+        /// </summary>
+        string? AssistantId { get; set; }
+
+        /// <summary>
+        /// Get or set the tools.
+        /// </summary>
+        Dictionary<string, Tool> Tools { get; set; }
+
     }
 
     /// <summary>
@@ -42,6 +64,47 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
     /// </summary>
     public class AssistantsState : TurnState, IAssistantsState
     {
+
+        /// <summary>
+        /// Get or set the conversation assistant.
+        /// Stored in ConversationState with key "conversation_assistant_id".
+        /// </summary>
+        public string? AssistantId
+        {
+            get => this.User?.Get<string>("conversation_assistant_id");
+            set => this.User?.Set("conversation_assistant_id", value);
+        }
+
+        /// <summary>
+        /// Get or set the conversation model.
+        /// Stored in ConversationState with key "conversation_model".
+        /// </summary>
+        public string? Model
+        {
+            get => this.Conversation?.Get<string>("conversation_model");
+            set => this.Conversation?.Set("conversation_model", value);
+        }
+
+        /// <summary>
+        /// Get or set the files.
+        /// Stored in ConversationState with key "conversation_files".
+        /// </summary>
+        public List<string> Files
+        {
+            get => this.Conversation?.Get<List<string>>("conversation_files") ?? new List<string>();
+            set => this.Conversation?.Set("conversation_files", value);
+        }
+
+        /// <summary>
+        /// Get or set the tools.
+        /// Stored in ConversationState with key "conversation_tools".
+        /// </summary>
+        public Dictionary<string, Tool> Tools
+        {
+            get => this.Conversation?.Get<Dictionary<string, Tool>>("conversation_tools") ?? new Dictionary<string, Tool>();
+            set => this.Conversation?.Set("conversation_tools", value);
+        }
+
         /// <summary>
         /// Get or set the thread ID.
         /// Stored in ConversationState with key "assistants_state_thread_id".
@@ -86,9 +149,9 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// Get or set the submit tool map.
         /// Stored in TempState with key "assistants_state_submit_tool_map".
         /// </summary>
-        public Dictionary<string, string> SubmitToolMap
+        public Dictionary<string, List<string>> SubmitToolMap
         {
-            get => this.Temp?.Get<Dictionary<string, string>>("assistants_state_submit_tool_map") ?? new Dictionary<string, string>();
+            get => this.Temp?.Get<Dictionary<string, List<string>>>("assistants_state_submit_tool_map") ?? new Dictionary<string, List<string>>();
             set => this.Temp?.Set("assistants_state_submit_tool_map", value);
         }
     }

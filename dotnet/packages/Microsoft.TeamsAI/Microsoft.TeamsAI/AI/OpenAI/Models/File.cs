@@ -15,9 +15,6 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
 
         [JsonPropertyName("created_at")]
         public long CreatedAt { get; set; }
-
-        [JsonPropertyName("bytes")]
-        public long Bytes { get; set; }
     }
 
 }

@@ -275,7 +275,7 @@ namespace Microsoft.Teams.AI.AI
 
                         if (turnState.Temp != null)
                         {
-                            turnState.Temp.ActionOutputs[doCommand.Action] = output;
+                            turnState.Temp.ActionOutputs[doCommand.ToolCallId ?? doCommand.Action] = output;
                         }
                     }
                     else

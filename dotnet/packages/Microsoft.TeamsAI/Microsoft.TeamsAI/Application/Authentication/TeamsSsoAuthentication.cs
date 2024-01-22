@@ -1,6 +1,5 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Extensibility;
 using Microsoft.Teams.AI.Exceptions;
 using Microsoft.Teams.AI.State;
 
@@ -12,9 +11,11 @@ namespace Microsoft.Teams.AI
     public class TeamsSsoAuthentication<TState> : IAuthentication<TState>
         where TState : TurnState, new()
     {
-        private readonly TeamsSsoBotAuthentication<TState>? _botAuth;
-        private readonly TeamsSsoMessageExtensionsAuthentication? _messageExtensionsAuth;
-        private readonly TeamsSsoSettings _settings;
+        internal IConfidentialClientApplicationAdapter _msalAdapter;
+
+        internal TeamsSsoBotAuthentication<TState>? _botAuth;
+        private TeamsSsoMessageExtensionsAuthentication? _messageExtensionsAuth;
+        private TeamsSsoSettings _settings;
 
         /// <summary>
         /// Initialize instance for current class
@@ -25,9 +26,10 @@ namespace Microsoft.Teams.AI
         /// <param name="storage">The storage to use.</param>
         public TeamsSsoAuthentication(Application<TState> app, string name, TeamsSsoSettings settings, IStorage? storage = null)
         {
-            this._settings = settings;
-            this._botAuth = new TeamsSsoBotAuthentication<TState>(app, name, this._settings, storage);
-            this._messageExtensionsAuth = new TeamsSsoMessageExtensionsAuthentication(this._settings);
+            _settings = settings;
+            _botAuth = new TeamsSsoBotAuthentication<TState>(app, name, _settings, storage);
+            _messageExtensionsAuth = new TeamsSsoMessageExtensionsAuthentication(_settings);
+            _msalAdapter = new ConfidentialClientApplicationAdapter(settings.MSAL);
         }
 
         /// <summary>
@@ -59,10 +61,7 @@ namespace Microsoft.Teams.AI
         {
             string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
 
-            if (this._settings.MSAL is ILongRunningWebApi oboCca)
-            {
-                await oboCca.StopLongRunningProcessInWebApiAsync(homeAccountId, cancellationToken);
-            }
+            await _msalAdapter.StopLongRunningProcessInWebApiAsync(homeAccountId, cancellationToken);
         }
 
         /// <summary>
@@ -104,10 +103,7 @@ namespace Microsoft.Teams.AI
             string homeAccountId = $"{context.Activity.From.AadObjectId}.{context.Activity.Conversation.TenantId}";
             try
             {
-                AuthenticationResult result = await ((ILongRunningWebApi)this._settings.MSAL).AcquireTokenInLongRunningProcess(
-                    this._settings.Scopes,
-                            homeAccountId
-                        ).ExecuteAsync();
+                AuthenticationResult result = await _msalAdapter.AcquireTokenInLongRunningProcess(_settings.Scopes, homeAccountId);
                 return result.AccessToken;
             }
             catch (MsalClientException)

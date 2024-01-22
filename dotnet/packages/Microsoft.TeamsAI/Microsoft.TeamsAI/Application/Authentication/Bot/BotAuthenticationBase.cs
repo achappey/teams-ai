@@ -25,12 +25,12 @@ namespace Microsoft.Teams.AI
         /// <summary>
         /// Callback when user sign in success
         /// </summary>
-        protected Func<ITurnContext, TState, Task>? _userSignInSuccessHandler;
+        internal Func<ITurnContext, TState, Task>? _userSignInSuccessHandler;
 
         /// <summary>
         /// Callback when user sign in fail
         /// </summary>
-        protected Func<ITurnContext, TState, AuthException, Task>? _userSignInFailureHandler;
+        internal Func<ITurnContext, TState, AuthException, Task>? _userSignInFailureHandler;
 
         /// <summary>
         /// Initializes the class
@@ -65,7 +65,7 @@ namespace Microsoft.Teams.AI
             // Save message if not signed in
             if (!this.TryGetUserAuthState(context, state, out _))
             {
-                state.Conversation.Add(userAuthStatePropertyName, new Dictionary<string, string>()
+                state.Conversation?.Add(userAuthStatePropertyName, new Dictionary<string, string>()
                 {
                     {"message", context.Activity.Text }
                 });
@@ -218,14 +218,14 @@ namespace Microsoft.Teams.AI
         {
             // Delete user auth state
             string userAuthStatePropertyName = this.GetUserAuthStatePropertyName(context);
-            if (state.Conversation.ContainsKey(userAuthStatePropertyName))
+            if (state.Conversation != null && state.Conversation.ContainsKey(userAuthStatePropertyName))
             {
                 state.Conversation.Remove(userAuthStatePropertyName);
             }
 
             // Delete user dialog state
             string userDialogStatePropertyName = this.GetUserDialogStatePropertyName(context);
-            if (state.Conversation.ContainsKey(userDialogStatePropertyName))
+            if (state.Conversation != null && state.Conversation.ContainsKey(userDialogStatePropertyName))
             {
                 state.Conversation.Remove(userDialogStatePropertyName);
             }

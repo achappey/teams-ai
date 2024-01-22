@@ -47,7 +47,7 @@ namespace Microsoft.Teams.AI
         /// <returns>The connection setting name if the user is in sign in flow. Otherwise null.</returns>
         public static string? UserInSignInFlow<TState>(TState state) where TState : TurnState, new()
         {
-            string? value = state.User.Get<string>(IS_SIGNED_IN_KEY);
+            string? value = state.User?.Get<string>(IS_SIGNED_IN_KEY);
 
             return value == string.Empty || value == null ? null : value;
         }
@@ -60,7 +60,7 @@ namespace Microsoft.Teams.AI
         /// <param name="settingName">The connection setting name defined when configuring the authentication options within the application class.</param>
         public static void SetUserInSignInFlow<TState>(TState state, string settingName) where TState : TurnState, new()
         {
-            state.User.Set(IS_SIGNED_IN_KEY, settingName);
+            state.User?.Set(IS_SIGNED_IN_KEY, settingName);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace Microsoft.Teams.AI
         /// <param name="state">The turn state.</param>
         public static void DeleteUserInSignInFlow<TState>(TState state) where TState : TurnState, new()
         {
-            state.User.Remove(IS_SIGNED_IN_KEY);
+            state.User?.Remove(IS_SIGNED_IN_KEY);
         }
     }
 }

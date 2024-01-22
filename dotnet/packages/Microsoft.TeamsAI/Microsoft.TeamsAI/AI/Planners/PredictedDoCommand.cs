@@ -21,6 +21,12 @@ namespace Microsoft.Teams.AI.AI.Planners
         public string Action { get; set; }
 
         /// <summary>
+        /// The corresponding tool call id
+        /// </summary>
+        [JsonPropertyName("tool_call_id")]
+        public string? ToolCallId { get; set; }
+
+        /// <summary>
         /// Any parameters that the AI system should use to perform the action.
         /// </summary>
         [JsonPropertyName("parameters")]

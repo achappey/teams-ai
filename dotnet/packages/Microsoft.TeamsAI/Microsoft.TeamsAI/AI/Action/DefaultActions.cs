@@ -8,7 +8,6 @@ using Microsoft.Bot.Builder;
 using Microsoft.Extensions.Logging.Abstractions;
 using AdaptiveCards;
 using Microsoft.Bot.Schema;
-using Newtonsoft.Json;
 
 namespace Microsoft.Teams.AI.AI.Action
 {
@@ -122,8 +121,7 @@ namespace Microsoft.Teams.AI.AI.Action
             AdaptiveFactSet factSet = new();
 
             factSet.Facts.Add(new AdaptiveFact("Filename", parameters["filename"].ToString()));
-            factSet.Facts.Add(new AdaptiveFact("Start index", parameters["start_index"].ToString()));
-            factSet.Facts.Add(new AdaptiveFact("End index", parameters["end_index"].ToString()));
+            factSet.Facts.Add(new AdaptiveFact("Ranges", parameters["ranges"].ToString()));
 
             card.Body.Add(factSet);
 
@@ -142,13 +140,92 @@ namespace Microsoft.Teams.AI.AI.Action
 
             Attachment attachment = new()
             {
-                ContentType = "application/vnd.microsoft.card.adaptive",
-                Content = JsonConvert.DeserializeObject(card.ToJson())
+                ContentType = AdaptiveCard.ContentType,
+                Content = card
             };
 
             IMessageActivity reply = MessageFactory.Attachment(attachment);
             await turnContext.SendActivityAsync(reply);
 
+            return string.Empty;
+        }
+
+        [Action("file_path", isDefault: true)]
+        public async Task<string> DownloadFile([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
+        {
+            // Create a new Adaptive Card
+            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
+
+            // Add a text block to the card
+            card.Body.Add(new AdaptiveTextBlock
+            {
+                Text = parameters["filename"].ToString(),
+                Weight = AdaptiveTextWeight.Bolder,
+                Size = AdaptiveTextSize.Medium
+            });
+
+            // Create a fact set and add it to the card
+            AdaptiveFactSet factSet = new();
+            factSet.Facts.Add(new AdaptiveFact("Start index", parameters["start_index"].ToString()));
+            factSet.Facts.Add(new AdaptiveFact("End index", parameters["end_index"].ToString()));
+            card.Body.Add(factSet);
+
+            IMessageActivity reply = MessageFactory.Attachment(new Attachment()
+            {
+                ContentType = "application/vnd.microsoft.card.adaptive",
+                Content = card
+            });
+
+            // Check if file content is not null
+            if (parameters["fileContent"] is byte[] fileContent)
+            {
+                // Convert the byte array to a stream
+                string base64File = Convert.ToBase64String(fileContent);
+
+                // Assuming 'filename' is the name of the file to download
+                string filename = parameters["filename"].ToString();
+                string contentUrl = $"data:application/octet-stream;base64,{base64File}";
+
+                // Create an attachment from the stream
+                Attachment fileAttachment = new()
+                {
+                    ContentType = "application/octet-stream",
+                    ContentUrl = contentUrl,
+                    Name = filename
+                };
+
+                // Attach the file to the message activity
+                reply.Attachments.Add(fileAttachment);
+            }
+
+            // Send the message activity with the Adaptive Card and the file attachment
+            await turnContext.SendActivityAsync(reply);
+
+            return string.Empty;
+        }
+
+        [Action("image_file", isDefault: true)]
+        public async Task<string> DisplayImageFile([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
+        {
+            // Check if file content is not null
+            if (parameters["fileContent"] is byte[] fileContent)
+            {
+                // Convert the byte array to a Base64 string
+                string base64Image = Convert.ToBase64String(fileContent);
+
+                // Create a new message with the image
+                IMessageActivity imageMessage = MessageFactory.Text(null);
+                imageMessage.Attachments = new List<Attachment>
+                {
+                    new() {
+                        ContentType = "image/png",
+                        ContentUrl = $"data:image/png;base64,{base64Image}"
+                    }
+                };
+
+                // Send the image message
+                await turnContext.SendActivityAsync(imageMessage);
+            }
             return string.Empty;
         }
     }
