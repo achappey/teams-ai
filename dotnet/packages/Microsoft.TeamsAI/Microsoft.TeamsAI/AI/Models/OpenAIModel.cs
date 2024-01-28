@@ -185,12 +185,12 @@ namespace Microsoft.Teams.AI.AI.Models
                     this._logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
                     if (promptResponse.Status == PromptResponseStatus.Success)
                     {
-                        this._logger.LogTrace(JsonSerializer.Serialize(completionsResponse!.Value));
+                        _logger.LogTrace(JsonSerializer.Serialize(completionsResponse!.Value));
                     }
                     if (promptResponse.Status == PromptResponseStatus.RateLimited)
                     {
-                        this._logger.LogTrace("HEADERS:");
-                        this._logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
+                        _logger.LogTrace("HEADERS:");
+                        _logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
                     }
                 }
 
@@ -215,8 +215,8 @@ namespace Microsoft.Teams.AI.AI.Models
                 if (this._options.LogRequests!.Value)
                 {
                     // TODO: Colorize
-                    this._logger.LogTrace("CHAT PROMPT:");
-                    this._logger.LogTrace(JsonSerializer.Serialize(prompt.Output));
+                    _logger.LogTrace("CHAT PROMPT:");
+                    _logger.LogTrace(JsonSerializer.Serialize(prompt.Output));
                 }
 
                 // Call chat completion API
@@ -264,12 +264,12 @@ namespace Microsoft.Teams.AI.AI.Models
                     this._logger.LogTrace($"duration {(DateTime.UtcNow - startTime).TotalMilliseconds} ms");
                     if (promptResponse.Status == PromptResponseStatus.Success)
                     {
-                        this._logger.LogTrace(JsonSerializer.Serialize(chatCompletionsResponse!.Value));
+                        _logger.LogTrace(JsonSerializer.Serialize(chatCompletionsResponse!.Value));
                     }
                     if (promptResponse.Status == PromptResponseStatus.RateLimited)
                     {
-                        this._logger.LogTrace("HEADERS:");
-                        this._logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
+                        _logger.LogTrace("HEADERS:");
+                        _logger.LogTrace(JsonSerializer.Serialize(rawResponse.Headers));
                     }
                 }
 

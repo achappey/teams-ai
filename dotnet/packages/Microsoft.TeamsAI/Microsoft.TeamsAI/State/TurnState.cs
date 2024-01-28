@@ -2,7 +2,9 @@
 using Microsoft.Bot.Schema;
 using Microsoft.Teams.AI.Exceptions;
 using Microsoft.Teams.AI.Utilities;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Microsoft.Teams.AI.Tests")]
 namespace Microsoft.Teams.AI.State
 {
     /// <summary>
@@ -397,7 +399,7 @@ namespace Microsoft.Teams.AI.State
             string[] parts = path.Split('.');
             if (parts.Length > 2)
             {
-                throw new ArgumentException($"Invalid state path: ${path}");
+                throw new ArgumentException($"Invalid state path: {path}");
             }
             else if (parts.Length == 1)
             {

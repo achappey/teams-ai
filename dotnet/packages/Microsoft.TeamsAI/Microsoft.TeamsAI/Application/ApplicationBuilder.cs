@@ -24,7 +24,7 @@ namespace Microsoft.Teams.AI
         /// <param name="adapter">The adapter to use for routing incoming requests.</param>
         /// <param name="botAppId">The Microsoft App ID for the bot.</param>
         /// <returns>The ApplicationBuilder instance.</returns>
-        public ApplicationBuilder<TState> WithLongRunningMessages(BotAdapter adapter, string botAppId)
+        public ApplicationBuilder<TState> WithLongRunningMessages(TeamsAdapter adapter, string botAppId)
         {
             if (string.IsNullOrEmpty(botAppId))
             {
@@ -133,7 +133,7 @@ namespace Microsoft.Teams.AI
         /// <param name="adapter">The bot adapter.</param>
         /// <param name="authenticationOptions">The options for authentication.</param>
         /// <returns>The ApplicationBuilder instance.</returns>
-        public ApplicationBuilder<TState> WithAuthentication(BotAdapter adapter, AuthenticationOptions<TState> authenticationOptions)
+        public ApplicationBuilder<TState> WithAuthentication(TeamsAdapter adapter, AuthenticationOptions<TState> authenticationOptions)
         {
             this.Options.Adapter = adapter;
             this.Options.Authentication = authenticationOptions;
