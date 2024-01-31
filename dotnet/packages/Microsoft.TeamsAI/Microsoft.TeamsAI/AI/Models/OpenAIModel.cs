@@ -28,6 +28,11 @@ namespace Microsoft.Teams.AI.AI.Models
 
         private readonly OpenAIClient _openAIClient;
         private readonly string _deploymentName;
+        private readonly static JsonSerializerOptions _serializerOptions = new()
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         private static readonly string _userAgent = "AlphaWave";
 
@@ -220,8 +225,8 @@ namespace Microsoft.Teams.AI.AI.Models
                 }
 
                 // Call chat completion API
-                IEnumerable<Azure.AI.OpenAI.ChatMessage> chatMessages = prompt.Output.Select(chatMessage => chatMessage.ToAzureSdkChatMessage());
-                ChatCompletionsOptions chatCompletionsOptions = new(this._deploymentName, chatMessages)
+                IEnumerable<ChatRequestMessage> chatMessages = prompt.Output.Select(chatMessage => chatMessage.ToChatRequestMessage());
+                ChatCompletionsOptions chatCompletionsOptions = new(_deploymentName, chatMessages)
                 {
                     MaxTokens = maxInputTokens,
                     Temperature = (float)promptTemplate.Configuration.Completion.Temperature,

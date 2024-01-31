@@ -60,11 +60,7 @@ namespace Microsoft.Teams.AI.AI.Embeddings
                 this._logger?.LogInformation($"\nEmbeddings REQUEST: inputs={inputs}");
             }
 
-            EmbeddingsOptions embeddingsOptions = new()
-            {
-                DeploymentName = this._options.Model,
-                Input = inputs,
-            };
+            EmbeddingsOptions embeddingsOptions = new(_options.Model, inputs);
 
             try
             {

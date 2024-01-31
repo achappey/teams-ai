@@ -90,26 +90,26 @@ namespace Microsoft.Teams.AI.AI.Models
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override bool Equals(object obj)
         {
-            return obj is ChatRole other && this.Equals(other);
+            return obj is ChatRole other && Equals(other);
         }
 
         /// <inheritdoc />
         public bool Equals(ChatRole other)
         {
-            return string.Equals(this.Value, other.Value, StringComparison.InvariantCultureIgnoreCase);
+            return string.Equals(Value, other.Value, StringComparison.InvariantCultureIgnoreCase);
         }
 
         /// <inheritdoc />
         [EditorBrowsable(EditorBrowsableState.Never)]
         public override int GetHashCode()
         {
-            return this.Value?.GetHashCode() ?? 0;
+            return Value?.GetHashCode() ?? 0;
         }
 
         /// <inheritdoc />
         public override string ToString()
         {
-            return this.Value;
+            return Value;
         }
     }
 }

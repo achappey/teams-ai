@@ -313,7 +313,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     {
                         ToolCallId = value,
                         Output = state.Temp!.ActionOutputs.ContainsKey(value) ? state.Temp!.ActionOutputs[value]
-                            : state.Temp!.ActionOutputs.ContainsKey(requiredAction.Key) ? state.Temp!.ActionOutputs[requiredAction.Key] 
+                            : state.Temp!.ActionOutputs.ContainsKey(requiredAction.Key) ? state.Temp!.ActionOutputs[requiredAction.Key]
                             : string.Empty
                     });
                 }
