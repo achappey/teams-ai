@@ -125,18 +125,23 @@ namespace Microsoft.Teams.AI.AI.Action
 
             card.Body.Add(factSet);
 
-            card.Body.Add(new AdaptiveTextBlock
-            {
-                Text = $"Quote",
-                Size = AdaptiveTextSize.Default,
-                Weight = AdaptiveTextWeight.Bolder
-            });
+            string quote = parameters["quote"].ToString();
 
-            card.Body.Add(new AdaptiveTextBlock
+            if (!string.IsNullOrEmpty(quote))
             {
-                Text = parameters["quote"].ToString(),
-                Wrap = true
-            });
+                card.Body.Add(new AdaptiveTextBlock
+                {
+                    Text = $"Quote",
+                    Size = AdaptiveTextSize.Default,
+                    Weight = AdaptiveTextWeight.Bolder
+                });
+
+                card.Body.Add(new AdaptiveTextBlock
+                {
+                    Text = parameters["quote"].ToString(),
+                    Wrap = true
+                });
+            }
 
             Attachment attachment = new()
             {
