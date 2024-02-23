@@ -1,5 +1,6 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Schema;
 using Microsoft.Teams.AI.Application.Authentication.Bot;
 using Microsoft.Teams.AI.State;
 
@@ -12,18 +13,21 @@ namespace Microsoft.Teams.AI
         where TState : TurnState, new()
     {
         private readonly OAuthPrompt _oauthPrompt;
+        private readonly OAuthSettings _oauthSettings;
 
         /// <summary>
         /// Initializes the class
         /// </summary>
         /// <param name="app">The application instance</param>
-        /// <param name="oauthPromptSettings">The OAuth prompt settings</param>
+        /// <param name="oauthSettings">The OAuth prompt settings</param>
         /// <param name="settingName">The name of current authentication handler</param>
         /// <param name="storage">The storage to save turn state</param>
-        public OAuthBotAuthentication(Application<TState> app, OAuthPromptSettings oauthPromptSettings, string settingName, IStorage? storage = null) : base(app, settingName, storage)
+        public OAuthBotAuthentication(Application<TState> app, OAuthSettings oauthSettings, string settingName, IStorage? storage = null) : base(app, settingName, storage)
         {
+            this._oauthSettings = oauthSettings;
+
             // Create OAuthPrompt
-            this._oauthPrompt = new OAuthPrompt("OAuthPrompt", oauthPromptSettings);
+            this._oauthPrompt = new OAuthPrompt("OAuthPrompt", this._oauthSettings);
 
             // Handles deduplication of token exchange event when using SSO with Bot Authentication
             app.Adapter.Use(new FilteredTeamsSSOTokenExchangeMiddleware(storage ?? new MemoryStorage(), settingName));
@@ -57,7 +61,14 @@ namespace Microsoft.Teams.AI
             DialogTurnResult results = await dialogContext.ContinueDialogAsync(cancellationToken);
             if (results.Status == DialogTurnStatus.Empty)
             {
-                results = await dialogContext.BeginDialogAsync(this._oauthPrompt.Id, null, cancellationToken);
+                Attachment card = await this.CreateOAuthCard(context, cancellationToken);
+                Activity messageActivity = (Activity)MessageFactory.Attachment(card);
+                PromptOptions options = new()
+                {
+                    Prompt = messageActivity,
+                };
+
+                results = await dialogContext.BeginDialogAsync(this._oauthPrompt.Id, options, cancellationToken);
             }
             return results;
         }
@@ -68,6 +79,45 @@ namespace Microsoft.Teams.AI
             DialogSet dialogSet = new(accessor);
             dialogSet.Add(this._oauthPrompt);
             return await dialogSet.CreateContextAsync(context, cancellationToken);
+        }
+
+        public async Task<Attachment> CreateOAuthCard(ITurnContext context, CancellationToken cancellationToken = default)
+        {
+            SignInResource signInResource = await GetSignInResourceAsync(context, this._oauthSettings.ConnectionName, cancellationToken);
+            string? link = signInResource.SignInLink;
+            TokenExchangeResource? tokenExchangeResource = null;
+
+            if (this._oauthSettings.EnableSso == true)
+            {
+                tokenExchangeResource = signInResource.TokenExchangeResource;
+            }
+
+            return new Attachment
+            {
+                ContentType = OAuthCard.ContentType,
+                Content = new OAuthCard
+                {
+                    Text = this._oauthSettings.Text,
+                    ConnectionName = this._oauthSettings.ConnectionName,
+                    Buttons = new[]
+                    {
+                        new CardAction
+                        {
+                                Title = this._oauthSettings.Title,
+                                Text = this._oauthSettings.Text,
+                                Type = "signin",
+                                Value = link
+                        },
+                        },
+                    TokenExchangeResource = tokenExchangeResource,
+                    TokenPostResource = signInResource.TokenPostResource
+                },
+            };
+        }
+
+        protected async virtual Task<SignInResource> GetSignInResourceAsync(ITurnContext context, string connectionName, CancellationToken cancellationToken = default)
+        {
+            return await UserTokenClientWrapper.GetSignInResourceAsync(context, this._oauthSettings.ConnectionName, cancellationToken);
         }
     }
 }

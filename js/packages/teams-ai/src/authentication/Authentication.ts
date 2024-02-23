@@ -1,4 +1,3 @@
-/* eslint-disable security/detect-object-injection */
 /**
  * @module teams-ai
  */
@@ -339,6 +338,11 @@ export type OAuthSettings = OAuthPromptSettings & {
      * Optional. Set this to enable SSO when authentication user using adaptive cards.
      */
     tokenExchangeUri?: string;
+
+    /**
+     * Optional. Set to `true` to enable SSO when authenticating using AAD.
+     */
+    enableSso?: boolean;
 };
 
 /**
@@ -397,8 +401,8 @@ export class AuthError extends Error {
 
     /**
      * Creates a new instance of the `AuthError` class.
-     * @param message The error message.
-     * @param reason Optional. Cause of the error. Defaults to `other`.
+     * @param {string} message The error message.
+     * @param {AuthErrorReason} reason Optional. Cause of the error. Defaults to `other`.
      */
     constructor(message?: string, reason: AuthErrorReason = 'other') {
         super(message);
