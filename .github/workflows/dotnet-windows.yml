@@ -1,4 +1,4 @@
-name: .NET 7 Build on Windows
+name: .NET 8 Build on Windows
 
 on: [push, pull_request]
 
@@ -13,5 +13,5 @@ jobs:
       with:
         dotnet-version: '8.0.x'
     - name: Build
-      run: dotnet build --configuration Release
-      working-directory: dotnet/packages/Microsoft.TeamsAI/
+      run: dotnet build --configuration Release Microsoft.Teams.AI.csproj
+      working-directory: dotnet/packages/Microsoft.TeamsAI/Microsoft.TeamsAI
