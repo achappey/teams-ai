@@ -109,7 +109,7 @@ namespace Microsoft.Teams.AI.AI.Action
         [Action("file_citation", isDefault: true)]
         public async Task<string> DisplayCitation([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
         {
-            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 5));
+            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
 
             card.Body.Add(new AdaptiveTextBlock
             {
@@ -159,7 +159,7 @@ namespace Microsoft.Teams.AI.AI.Action
         public async Task<string> DownloadFile([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
         {
             // Create a new Adaptive Card
-            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 5));
+            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
 
             // Add a text block to the card
             card.Body.Add(new AdaptiveTextBlock
