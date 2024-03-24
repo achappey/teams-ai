@@ -10,8 +10,9 @@ from typing import Any, Dict, List, Optional, Union
 
 import yaml
 from botbuilder.core import TurnContext
+from dataclasses_json import DataClassJsonMixin, dataclass_json
 
-from ....state import Memory
+from ....state import MemoryBase
 from ...models.chat_completion_action import ChatCompletionAction
 from ...tokenizers.tokenizer import Tokenizer
 from ..message import Message
@@ -21,13 +22,14 @@ from .prompt_section_base import PromptSectionBase
 
 
 @dataclass
-class ActionValue:
+class ActionValue(yaml.YAMLObject):
     description: Optional[str] = None
     parameters: Optional[Union[Dict[str, Any], Dict[str, Dict[str, Any]]]] = None
 
 
+@dataclass_json
 @dataclass
-class ActionList:
+class ActionList(DataClassJsonMixin):
     actions: Dict[str, ActionValue]
 
 
@@ -76,12 +78,12 @@ class ActionAugmentationSection(PromptSectionBase):
                 )
 
         # Build augmentation text
-        self._text = f"{yaml.dump(action_list)}\n\n{call_to_action}"
+        self._text = f"{yaml.dump(action_list.to_dict())}\n\n{call_to_action}"
 
     async def render_as_messages(
         self,
         context: TurnContext,
-        memory: Memory,
+        memory: MemoryBase,
         functions: PromptFunctions,
         tokenizer: Tokenizer,
         max_tokens: int,
@@ -91,7 +93,7 @@ class ActionAugmentationSection(PromptSectionBase):
 
         Args:
             context (TurnContext): Context for the current turn of conversation.
-            memory (Memory): Interface for accessing state variables.
+            memory (MemoryBase): Interface for accessing state variables.
             functions (PromptFunctions): Functions for rendering prompts.
             tokenizer (Tokenizer): Tokenizer to use for encoding/decoding text.
             max_tokens (int): Maximum number of tokens allowed for the rendered prompt.

@@ -14,7 +14,7 @@ import openai
 from botbuilder.core import TurnContext
 from openai.types import chat
 
-from ...state import Memory
+from ...state import MemoryBase
 from ..prompts.message import Message
 from ..prompts.prompt_functions import PromptFunctions
 from ..prompts.prompt_template import PromptTemplate
@@ -112,7 +112,7 @@ class OpenAIModel(PromptCompletionModel):
     async def complete_prompt(
         self,
         context: TurnContext,
-        memory: Memory,
+        memory: MemoryBase,
         functions: PromptFunctions,
         tokenizer: Tokenizer,
         template: PromptTemplate,
@@ -146,24 +146,34 @@ class OpenAIModel(PromptCompletionModel):
         messages: List[chat.ChatCompletionMessageParam] = []
 
         for msg in res.output:
-            param: chat.ChatCompletionMessageParam = chat.ChatCompletionUserMessageParam(
+            param: Union[
+                chat.ChatCompletionUserMessageParam,
+                chat.ChatCompletionAssistantMessageParam,
+                chat.ChatCompletionSystemMessageParam,
+            ] = chat.ChatCompletionUserMessageParam(
                 role="user",
-                name=msg.name if msg.name is not None else "",
                 content=msg.content if msg.content is not None else "",
             )
+
+            if msg.name:
+                param["name"] = msg.name
 
             if msg.role == "assistant":
                 param = chat.ChatCompletionAssistantMessageParam(
                     role="assistant",
-                    name=msg.name if msg.name is not None else "",
-                    content=msg.content,
+                    content=msg.content if msg.content is not None else "",
                 )
+
+                if msg.name:
+                    param["name"] = msg.name
             elif msg.role == "system":
                 param = chat.ChatCompletionSystemMessageParam(
                     role="system",
-                    name=msg.name if msg.name is not None else "",
                     content=msg.content if msg.content is not None else "",
                 )
+
+                if msg.name:
+                    param["name"] = msg.name
 
             messages.append(param)
 
