@@ -2,7 +2,7 @@
 
 namespace Microsoft.Teams.AI.AI.OpenAI.Models
 {
-    internal class Message
+    internal class Message : IEventDataType
     {
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;

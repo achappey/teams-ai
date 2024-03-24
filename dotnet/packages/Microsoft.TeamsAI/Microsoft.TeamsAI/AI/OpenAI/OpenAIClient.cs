@@ -123,7 +123,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     }
                 }
 
-                response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await this._httpClient.SendAsync(request, cancellationToken);
             }
 
             this._logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");
@@ -173,7 +173,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     request.Content = content;
                 }
 
-                response = await this._httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                response = await this._httpClient.SendAsync(request, cancellationToken);
             }
 
             this._logger.LogTrace($"HTTP response: {(int)response.StatusCode} {response.StatusCode:G}");

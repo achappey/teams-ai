@@ -5,6 +5,7 @@ using Microsoft.Teams.AI.AI.OpenAI.Models;
 using Microsoft.Teams.AI.Exceptions;
 using Microsoft.Teams.AI.State;
 using Microsoft.Teams.AI.Utilities;
+using System.Text;
 using System.Text.Json;
 
 // Assistants API is currently in beta and is subject to change.
@@ -76,7 +77,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(turnContext);
             Verify.ParamNotNull(turnState);
             Verify.ParamNotNull(ai);
-            return await this.ContinueTaskAsync(turnContext, turnState, ai, cancellationToken);
+            return await ContinueTaskAsync(turnContext, turnState, ai, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -87,22 +88,22 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(ai);
 
             // Create a new thread if we don't have one already
-            string threadId = await this._EnsureThreadCreatedAsync(turnState, cancellationToken);
+            string threadId = await _EnsureThreadCreatedAsync(turnState, cancellationToken);
 
             // Add the users input to the thread or send tool outputs
             if (turnState.SubmitToolOutputs)
             {
                 // Send the tool output to the assistant
-                return await this._SubmitActionResultsAsync(turnState, cancellationToken);
+                return await _SubmitActionResultsAsync(turnContext, turnState, cancellationToken);
             }
             else
             {
                 // Wait for any current runs to complete since you can't add messages or start new runs
                 // if there's already one in progress
-                await this._BlockOnInProgressRunsAsync(threadId, cancellationToken);
+                await _BlockOnInProgressRunsAsync(threadId, cancellationToken);
 
                 // Submit user input
-                return await this._SubmitUserInputAsync(turnState, cancellationToken);
+                return await _SubmitUserInputAsync(turnContext, turnState, cancellationToken);
             }
         }
 
@@ -172,10 +173,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             }
         }
 
-        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string lastMessageId, CancellationToken cancellationToken)
+        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string lastMessageId, bool excludeText, CancellationToken cancellationToken)
         {
-
-
             // Find the new messages
             IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, cancellationToken);
             List<Message> newMessages = new();
@@ -202,7 +201,10 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 {
                     if (string.Equals(content.Type, "text"))
                     {
-                        plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
+                        if (!excludeText)
+                        {
+                            plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
+                        }
                     }
 
                     if (string.Equals(content.Type, "image_file"))
@@ -300,7 +302,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             return plan;
         }
 
-        private async Task<Plan> _SubmitActionResultsAsync(TState state, CancellationToken cancellationToken)
+        private async Task<Plan> _SubmitActionResultsAsync(ITurnContext turnContext, TState state, CancellationToken cancellationToken)
         {
             // Map the action outputs to tool outputs
             List<ToolOutput> toolOutputs = new();
@@ -319,32 +321,107 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 }
             }
 
-            // Submit the tool outputs
-            Run run = await this._openAIClient.SubmitToolOutputsAsync(state.ThreadId!, state.RunId!, new()
+            Run? result = await _CreateSubmitOutputToolsStream(turnContext, state.ThreadId!, state.RunId!, new()
             {
                 ToolOutputs = toolOutputs
             }, cancellationToken);
 
-            // Wait for the run to complete
-            Run result = await this._WaitForRunAsync(state.ThreadId!, run.Id, true, cancellationToken);
-            switch (result.Status)
+            switch (result?.Status)
             {
                 case "requires_action":
                     state.SubmitToolOutputs = true;
                     return this._GeneratePlanFromTools(state, result.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, true, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
                     return new Plan(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
                 default:
-                    throw new TeamsAIException($"Run failed {result.Status}. ErrorCode: {result.LastError?.Code}. ErrorMessage: {result.LastError?.Message}");
+                    throw new TeamsAIException($"Run failed {result?.Status}. ErrorCode: {result?.LastError?.Code}. ErrorMessage: {result?.LastError?.Message}");
             }
         }
 
-        private async Task<Plan> _SubmitUserInputAsync(TState state, CancellationToken cancellationToken)
+        private Task<Run?> _CreateRunStream(ITurnContext turnContext, string threadId, RunCreateParams runCreateParams, CancellationToken cancellationToken)
+        {
+            IAsyncEnumerable<(string eventName, string result)> eventStream = this._openAIClient.CreateRunStreamAsync(threadId, runCreateParams, cancellationToken);
+            return ProcessEventStreamAsync(eventStream, turnContext, cancellationToken);
+        }
+
+        private Task<Run?> _CreateSubmitOutputToolsStream(ITurnContext turnContext, string threadId, string runId, SubmitToolOutputsParams submitToolOutputsParams, CancellationToken cancellationToken)
+        {
+            IAsyncEnumerable<(string eventName, string result)> eventStream = this._openAIClient.CreateSubmitOutputToolsStreamAsync(threadId, runId, submitToolOutputsParams, cancellationToken);
+            return ProcessEventStreamAsync(eventStream, turnContext, cancellationToken);
+        }
+
+
+        private async Task<Run?> ProcessEventStreamAsync(
+            IAsyncEnumerable<(string eventName, string result)> eventStream,
+            ITurnContext turnContext,
+            CancellationToken cancellationToken)
+        {
+            Run? run = null;
+            StringBuilder messageBuilder = new();
+            string? itemId = null;
+            int newCharsSinceLastUpdate = 0;
+
+            await foreach ((string eventName, string result) in eventStream.WithCancellation(cancellationToken))
+            {
+                if (eventName == "thread.message.delta")
+                {
+                    MessageDeltaEvent deltaMessage = JsonSerializer.Deserialize<MessageDeltaEvent>(result)!;
+                    string? deltaContent = deltaMessage.Delta?.Content.FirstOrDefault()?.Text?.Value;
+
+                    if (!string.IsNullOrEmpty(deltaContent))
+                    {
+                        messageBuilder.Append(deltaContent);
+                        newCharsSinceLastUpdate += deltaContent?.Length ?? 0;
+
+                        if (newCharsSinceLastUpdate >= 75)
+                        {
+                            Bot.Schema.Activity sendMessageActivity = MessageFactory.Text(messageBuilder.ToString().Replace("\n", "<br>"));
+                            if (itemId != null)
+                            {
+                                sendMessageActivity.Id = itemId;
+                                await turnContext.UpdateActivityAsync(sendMessageActivity, cancellationToken);
+                            }
+                            else
+                            {
+                                Bot.Schema.ResourceResponse response = await turnContext.SendActivityAsync(sendMessageActivity, cancellationToken);
+                                itemId = response?.Id;
+                            }
+                            // messageBuilder.Clear();
+                            newCharsSinceLastUpdate = 0;
+                        }
+                    }
+                }
+                else
+                {
+                    run = JsonSerializer.Deserialize<Run>(result)!;
+                }
+            }
+
+            // Verwerk het finale bericht na de loop.
+            if (newCharsSinceLastUpdate > 0)
+            {
+                Bot.Schema.Activity finalUpdateActivity = MessageFactory.Text(messageBuilder.ToString().Replace("\n", "<br>"));
+                if (itemId != null)
+                {
+                    finalUpdateActivity.Id = itemId;
+                    await turnContext.UpdateActivityAsync(finalUpdateActivity, cancellationToken);
+                }
+                else
+                {
+                    await turnContext.SendActivityAsync(finalUpdateActivity, cancellationToken);
+                }
+            }
+
+            return run;
+        }
+
+
+        private async Task<Plan> _SubmitUserInputAsync(ITurnContext turnContext, TState state, CancellationToken cancellationToken)
         {
             // Get the current thread_id
             string threadId = await this._EnsureThreadCreatedAsync(state, cancellationToken);
@@ -356,34 +433,33 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 FileIds = state.Files.Any() ? state.Files : null
             }, cancellationToken);
 
-            // Create a new run
-            Run run = await this._openAIClient.CreateRunAsync(threadId, new RunCreateParams()
+            RunCreateParams runCreateParams = new()
             {
                 Model = state.Model,
-                AssistantId = state.AssistantId != null && !string.IsNullOrEmpty(state.AssistantId) ? state.AssistantId : this._options.AssistantId,
-                AdditionalInstructions = !string.IsNullOrEmpty(state.Temp?.AdditionalInstructions) ? state.Temp?.AdditionalInstructions : null,
-                Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null
-            }, cancellationToken);
+                AssistantId = state.AssistantId ?? this._options.AssistantId,
+                AdditionalInstructions = state.Temp?.AdditionalInstructions,
+                Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null,
+            };
 
-            // Update state and wait for the run to complete
+            Run? run = await _CreateRunStream(turnContext, threadId, runCreateParams, cancellationToken);
+
             state.ThreadId = threadId;
-            state.RunId = run.Id;
+            state.RunId = run?.Id;
             state.LastMessageId = message.Id;
-            Run result = await this._WaitForRunAsync(threadId, run.Id, true, cancellationToken);
-            switch (result.Status)
+            switch (run?.Status)
             {
                 case "requires_action":
                     state.SubmitToolOutputs = true;
-                    return this._GeneratePlanFromTools(state, result.RequiredAction!);
+                    return this._GeneratePlanFromTools(state, run.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(threadId, message.Id, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(threadId, message.Id, true, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
                     return new Plan(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
                 default:
-                    throw new TeamsAIException($"Run failed {result.Status}. ErrorCode: {result.LastError?.Code}. ErrorMessage: {result.LastError?.Message}");
+                    throw new TeamsAIException($"Run failed {run?.Status}. ErrorCode: {run?.LastError?.Code}. ErrorMessage: {run?.LastError?.Message}");
             }
         }
     }

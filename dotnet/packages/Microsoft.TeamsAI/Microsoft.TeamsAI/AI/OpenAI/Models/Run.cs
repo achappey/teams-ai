@@ -2,7 +2,7 @@
 
 namespace Microsoft.Teams.AI.AI.OpenAI.Models
 {
-    internal class Run
+    internal class Run : IEventDataType
     {
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;
@@ -136,12 +136,21 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
         [JsonPropertyName("tools")]
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<Tool>? Tools { get; set; }
+
+        [JsonPropertyName("stream")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? Stream { get; set; }
+
     }
 
     internal class SubmitToolOutputsParams
     {
         [JsonPropertyName("tool_outputs")]
         public List<ToolOutput> ToolOutputs { get; set; } = new List<ToolOutput>();
+
+        [JsonPropertyName("stream")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? Stream { get; set; }
     }
 
     internal class ToolOutput

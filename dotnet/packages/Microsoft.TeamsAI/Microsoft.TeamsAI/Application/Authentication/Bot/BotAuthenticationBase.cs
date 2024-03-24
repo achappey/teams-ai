@@ -100,8 +100,8 @@ namespace Microsoft.Teams.AI
         /// <returns>True if valid. Otherwise, false.</returns>
         public virtual bool IsValidActivity(ITurnContext context)
         {
-            return context.Activity.Type == ActivityTypes.Message
-                && !string.IsNullOrEmpty(context.Activity.Text);
+            return (context.Activity.Type == ActivityTypes.Message
+                && !string.IsNullOrEmpty(context.Activity.Text)) || context.Activity.Type == ActivityTypes.Invoke;
         }
 
         /// <summary>

@@ -48,9 +48,9 @@ namespace Microsoft.Teams.AI
         /// <inheritdoc />
         public new async Task ProcessAsync(HttpRequest httpRequest, HttpResponse httpResponse, IBot bot, CancellationToken cancellationToken = default)
         {
-            string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
-            ProductInfoHeaderValue productInfo = new("teamsai-dotnet", version);
-            httpResponse.Headers.Add("User-Agent", productInfo.ToString());
+           // string version = Assembly.GetExecutingAssembly().GetName().Version.ToString();
+           // ProductInfoHeaderValue productInfo = new("teamsai-dotnet", version);
+            //httpResponse.Headers.Add("User-Agent", productInfo.ToString());
             await base.ProcessAsync(httpRequest, httpResponse, bot, cancellationToken);
         }
     }

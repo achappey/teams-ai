@@ -28,11 +28,6 @@ namespace Microsoft.Teams.AI.AI.Models
 
         private readonly OpenAIClient _openAIClient;
         private readonly string _deploymentName;
-        private readonly static JsonSerializerOptions _serializerOptions = new()
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
 
         private static readonly string _userAgent = "AlphaWave";
 
@@ -290,8 +285,7 @@ namespace Microsoft.Teams.AI.AI.Models
                 case "2023-05-15": return ServiceVersion.V2023_05_15;
                 case "2023-06-01-preview": return ServiceVersion.V2023_06_01_Preview;
                 case "2023-07-01-preview": return ServiceVersion.V2023_07_01_Preview;
-                case "2023-08-01-preview": return ServiceVersion.V2023_08_01_Preview;
-                case "2023-09-01-preview": return ServiceVersion.V2023_09_01_Preview;
+                case "2024-02-15-preview": return ServiceVersion.V2024_02_15_Preview;
                 default:
                     return null;
             }

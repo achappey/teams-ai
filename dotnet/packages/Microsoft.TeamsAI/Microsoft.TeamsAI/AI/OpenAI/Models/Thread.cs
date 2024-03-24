@@ -2,7 +2,7 @@
 
 namespace Microsoft.Teams.AI.AI.OpenAI.Models
 {
-    internal class Thread
+    internal class Thread : IEventDataType
     {
         [JsonPropertyName("id")]
         public string Id { get; set; } = string.Empty;

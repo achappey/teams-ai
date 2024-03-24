@@ -96,9 +96,9 @@ namespace Microsoft.Teams.AI.AI.Action
                 return this._returnType == typeof(string)
                     ? (string)result
                     : this._returnType == typeof(Task<string>)
-                        ? await ((Task<string>)result).ConfigureAwait(false)
+                        ? await (Task<string>)result
                         : this._returnType == typeof(ValueTask<string>)
-                                            ? await ((ValueTask<string>)result).ConfigureAwait(false)
+                                            ? await (ValueTask<string>)result
                                             : throw new InvalidOperationException($"Action method return type should be one of [string, Task<string>, ValueTask<string>]. Method name: {this._method.Name}.");
             }
             catch (TargetInvocationException ex)

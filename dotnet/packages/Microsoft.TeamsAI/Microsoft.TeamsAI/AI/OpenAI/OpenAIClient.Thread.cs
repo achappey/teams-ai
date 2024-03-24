@@ -134,39 +134,86 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             } while (hasMore);
         }
 
-        /// <summary>
-        /// Create a run of a thread.
-        /// </summary>
-        /// <param name="threadId">The thread ID.</param>
-        /// <param name="runCreateParams">The params to create the run.</param>
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects
-        /// or threads to receive notice of cancellation.</param>
-        /// <returns>The created run.</returns>
-        /// <exception cref="HttpOperationException" />
-        public virtual async Task<Run> CreateRunAsync(string threadId, RunCreateParams runCreateParams, CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<(string eventName, string result)> CreateRunStreamAsync(string threadId, RunCreateParams runCreateParams, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            try
+            runCreateParams.Stream = true;
+
+            string requestUri = $"{OpenAIThreadEndpoint}/{threadId}/runs";
+
+            await foreach ((string eventName, string result) item in CreateStreamAsync(requestUri,
+                JsonSerializer.Serialize(runCreateParams, _serializerOptions), cancellationToken))
             {
-                using HttpContent content = new StringContent(
-                    JsonSerializer.Serialize(runCreateParams, _serializerOptions),
-                    Encoding.UTF8,
-                    "application/json"
-                );
-
-                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs", content, OpenAIBetaHeaders, cancellationToken);
-
-                string responseJson = await httpResponse.Content.ReadAsStringAsync();
-                Run result = JsonSerializer.Deserialize<Run>(responseJson) ?? throw new SerializationException($"Failed to deserialize run result response json: {responseJson}");
-
-                return result;
+                yield return item;
             }
-            catch (HttpOperationException)
+        }
+
+        private async IAsyncEnumerable<(string eventName, string result)> CreateStreamAsync(string requestUri, string jsonPostContent, [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            using HttpContent content = new StringContent(
+                  jsonPostContent,
+                  Encoding.UTF8,
+                  "application/json"
+              );
+
+            HttpRequestMessage request = new(HttpMethod.Post, requestUri);
+            request.Content = content;
+
+            request.Headers.Add("Accept", "application/json");
+            request.Headers.Add("User-Agent", HttpUserAgent);
+            request.Headers.Add("Authorization", $"Bearer {this._options.ApiKey}");
+
+            if (this._options.Organization != null)
             {
-                throw;
+                request.Headers.Add("OpenAI-Organization", this._options.Organization);
             }
-            catch (Exception e)
+
+            foreach (KeyValuePair<string, string> header in OpenAIBetaHeaders)
             {
-                throw new TeamsAIException($"Something went wrong: {e.Message}", e);
+                request.Headers.Add(header.Key, header.Value);
+            }
+
+            using HttpResponseMessage response = await _httpClient.SendAsync(request, cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            using Stream stream = await response.Content.ReadAsStreamAsync();
+            using StreamReader reader = new(stream);
+            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+            {
+                string eventType = "";
+                StringBuilder eventDataBuilder = new();
+
+                string line;
+                while ((line = await reader.ReadLineAsync()) != string.Empty)
+                {
+                    if (line.StartsWith("event: "))
+                    {
+                        eventType = line.Substring(7);
+                    }
+                    else if (line.StartsWith("data: ") && !line.Contains("[DONE]"))
+                    {
+                        eventDataBuilder.AppendLine(line.Substring(6));
+                    }
+                    else if (line.Contains("data: [DONE]"))
+                    {
+                        yield break;
+                    }
+
+                    if (reader.EndOfStream)
+                    {
+                        break;
+                    }
+                }
+
+                if (eventType == "thread.message.delta"
+                    || eventType == "thread.run.requires_action"
+                    || eventType == "thread.run.completed" || eventType == "thread.run.expired"
+                    || eventType == "thread.run.failed" || eventType == "thread.run.cancelled")
+                {
+                    string eventData = eventDataBuilder.ToString();
+                    yield return (eventName: eventType, result: eventData);
+                }
+
+                eventDataBuilder.Clear();
             }
         }
 
@@ -229,40 +276,16 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             }
         }
 
-        /// <summary>
-        /// Submit tool outputs of a run.
-        /// </summary>
-        /// <param name="threadId">The thread ID.</param>
-        /// <param name="runId">The run ID.</param>
-        /// <param name="submitToolOutputsParams">The params to submit.</param>
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects
-        /// or threads to receive notice of cancellation.</param>
-        /// <returns>The run.</returns>
-        /// <exception cref="HttpOperationException" />
-        public virtual async Task<Run> SubmitToolOutputsAsync(string threadId, string runId, SubmitToolOutputsParams submitToolOutputsParams, CancellationToken cancellationToken = default)
+        public async IAsyncEnumerable<(string eventName, string result)> CreateSubmitOutputToolsStreamAsync(string threadId, string runId, SubmitToolOutputsParams submitToolOutputsParams, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            try
-            {
-                using HttpContent content = new StringContent(
-                    JsonSerializer.Serialize(submitToolOutputsParams, _serializerOptions),
-                    Encoding.UTF8,
-                    "application/json"
-                );
+            submitToolOutputsParams.Stream = true;
 
-                using HttpResponseMessage httpResponse = await this._ExecutePostRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}/submit_tool_outputs", content, OpenAIBetaHeaders, cancellationToken);
+            string requestUri = $"{OpenAIThreadEndpoint}/{threadId}/runs/{runId}/submit_tool_outputs";
 
-                string responseJson = await httpResponse.Content.ReadAsStringAsync();
-                Run result = JsonSerializer.Deserialize<Run>(responseJson) ?? throw new SerializationException($"Failed to deserialize run result response json: {responseJson}");
-
-                return result;
-            }
-            catch (HttpOperationException)
+            await foreach ((string eventName, string result) item in CreateStreamAsync(requestUri,
+                JsonSerializer.Serialize(submitToolOutputsParams, _serializerOptions), cancellationToken))
             {
-                throw;
-            }
-            catch (Exception e)
-            {
-                throw new TeamsAIException($"Something went wrong: {e.Message}", e);
+                yield return item;
             }
         }
 

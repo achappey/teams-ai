@@ -111,7 +111,13 @@ namespace Microsoft.Teams.AI.AI.Planners
                 throw new Exception(response.Error?.Message ?? "[Action Planner]: an error has occurred");
             }
 
-            Plan? plan = await template.Augmentation.CreatePlanFromResponseAsync(context, state, response, cancellationToken) ?? throw new Exception("[Action Planner]: failed to create plan");
+            Plan? plan = await template.Augmentation.CreatePlanFromResponseAsync(context, state, response, cancellationToken);
+
+            if (plan == null)
+            {
+                throw new Exception("[Action Planner]: failed to create plan");
+            }
+
             return plan;
         }
 
@@ -163,5 +169,6 @@ namespace Microsoft.Teams.AI.AI.Planners
 
             return await client.CompletePromptAsync(context, memory, this.Prompts, null, cancellationToken);
         }
+
     }
 }

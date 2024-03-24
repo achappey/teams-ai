@@ -51,23 +51,23 @@ namespace Microsoft.Teams.AI
             bool hasTimedOut = isTimeoutActivityType && DateTime.Compare(DateTime.UtcNow, (DateTime)state[_expiresKey]) > 0;
             if (hasTimedOut)
             {
-                return await dc.EndDialogAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                return await dc.EndDialogAsync(cancellationToken: cancellationToken);
             }
             else
             {
                 if (IsTeamsVerificationInvoke(dc.Context) || IsTokenExchangeRequestInvoke(dc.Context))
                 {
                     // Recognize token
-                    PromptRecognizerResult<TokenResponse> recognized = await RecognizeTokenAsync(dc, cancellationToken).ConfigureAwait(false);
+                    PromptRecognizerResult<TokenResponse> recognized = await RecognizeTokenAsync(dc, cancellationToken);
 
                     if (recognized.Succeeded)
                     {
-                        return await dc.EndDialogAsync(recognized.Value, cancellationToken).ConfigureAwait(false);
+                        return await dc.EndDialogAsync(recognized.Value, cancellationToken);
                     }
                 }
                 else if (isMessage && _settings.EndOnInvalidMessage)
                 {
-                    return await dc.EndDialogAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+                    return await dc.EndDialogAsync(cancellationToken: cancellationToken);
                 }
 
                 return EndOfTurn;
@@ -90,7 +90,7 @@ namespace Microsoft.Teams.AI
                 {
                     string warningMsg =
                       "The bot received an InvokeActivity that is missing a TokenExchangeInvokeRequest value. This is required to be sent with the InvokeActivity.";
-                    await SendInvokeResponseAsync(context, HttpStatusCode.BadRequest, warningMsg, cancellationToken).ConfigureAwait(false);
+                    await SendInvokeResponseAsync(context, HttpStatusCode.BadRequest, warningMsg, cancellationToken);
                 }
                 else
                 {
@@ -105,7 +105,7 @@ namespace Microsoft.Teams.AI
                             Expiration = exchangedToken.ExpiresOn.ToString("o")
                         };
 
-                        await SendInvokeResponseAsync(context, HttpStatusCode.OK, null, cancellationToken).ConfigureAwait(false);
+                        await SendInvokeResponseAsync(context, HttpStatusCode.OK, null, cancellationToken);
                     }
                     catch (MsalUiRequiredException) // Need user interaction
                     {
@@ -114,7 +114,7 @@ namespace Microsoft.Teams.AI
                         {
                             Id = context.Activity.Id,
                             FailureDetail = warningMsg,
-                        }, cancellationToken).ConfigureAwait(false);
+                        }, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -125,8 +125,8 @@ namespace Microsoft.Teams.AI
             }
             else if (IsTeamsVerificationInvoke(context))
             {
-                await SendOAuthCardToObtainTokenAsync(context, cancellationToken).ConfigureAwait(false);
-                await SendInvokeResponseAsync(context, HttpStatusCode.OK, null, cancellationToken).ConfigureAwait(false);
+                await SendOAuthCardToObtainTokenAsync(context, cancellationToken);
+                await SendInvokeResponseAsync(context, HttpStatusCode.OK, null, cancellationToken);
             }
 
             if (tokenResponse != null)
@@ -167,7 +167,7 @@ namespace Microsoft.Teams.AI
                 },
             });
             // Send prompt
-            await context.SendActivityAsync(prompt, cancellationToken).ConfigureAwait(false);
+            await context.SendActivityAsync(prompt, cancellationToken);
         }
 
         private SignInResource GetSignInResource()
@@ -206,7 +206,7 @@ namespace Microsoft.Teams.AI
                         Status = (int)statusCode,
                         Body = body,
                     },
-                }, cancellationToken).ConfigureAwait(false);
+                }, cancellationToken);
         }
     }
 }

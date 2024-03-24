@@ -208,32 +208,37 @@ namespace Microsoft.Teams.AI.AI
             Verify.ParamNotNull(turnState);
 
             // Initialize start time
-            startTime ??= DateTime.UtcNow;
+            startTime = startTime ?? DateTime.UtcNow;
 
             // Populate {{$temp.input}}
-            this._SetTempStateValues(turnState, turnContext);
+            _SetTempStateValues(turnState, turnContext);
 
             Plan? plan = null;
 
             // Review input on first loop
             if (stepCount == 0)
             {
-                plan = await this.Options.Moderator!.ReviewInputAsync(turnContext, turnState, cancellationToken);
+                plan = await Options.Moderator!.ReviewInputAsync(turnContext, turnState, cancellationToken);
             }
 
             // Generate plan
             if (plan == null)
             {
-                plan = stepCount == 0
-                    ? await this.Options.Planner.BeginTaskAsync(turnContext, turnState, this, cancellationToken)
-                    : await this.Options.Planner.ContinueTaskAsync(turnContext, turnState, this, cancellationToken);
+                if (stepCount == 0)
+                {
+                    plan = await Options.Planner.BeginTaskAsync(turnContext, turnState, this, cancellationToken);
+                }
+                else
+                {
+                    plan = await Options.Planner.ContinueTaskAsync(turnContext, turnState, this, cancellationToken);
+                }
 
                 // Review the plans output
-                plan = await this.Options.Moderator!.ReviewOutputAsync(turnContext, turnState, plan, cancellationToken);
+                plan = await Options.Moderator!.ReviewOutputAsync(turnContext, turnState, plan, cancellationToken);
             }
 
             // Process generated plan
-            string response = await this._actions[AIConstants.PlanReadyActionName].Handler.PerformActionAsync(turnContext, turnState, plan, AIConstants.PlanReadyActionName, cancellationToken);
+            string response = await _actions[AIConstants.PlanReadyActionName].Handler.PerformActionAsync(turnContext, turnState, plan, AIConstants.PlanReadyActionName, cancellationToken);
             if (string.Equals(response, AIConstants.StopCommand))
             {
                 return false;
@@ -246,11 +251,11 @@ namespace Microsoft.Teams.AI.AI
             foreach (IPredictedCommand command in plan.Commands)
             {
                 // Check for timeout
-                if (DateTime.UtcNow - startTime > this.Options.MaxTime || ++stepCount > this.Options.MaxSteps)
+                if (DateTime.UtcNow - startTime > Options.MaxTime || ++stepCount > Options.MaxSteps)
                 {
                     completed = false;
-                    TooManyStepsParameters parameters = new(this.Options.MaxSteps!.Value, this.Options.MaxTime!.Value, startTime.Value, stepCount);
-                    await this._actions[AIConstants.TooManyStepsActionName]
+                    TooManyStepsParameters parameters = new(Options.MaxSteps!.Value, Options.MaxTime!.Value, startTime.Value, stepCount);
+                    await _actions[AIConstants.TooManyStepsActionName]
                         .Handler
                         .PerformActionAsync(turnContext, turnState, parameters, AIConstants.TooManyStepsActionName, cancellationToken);
                     break;
@@ -259,12 +264,12 @@ namespace Microsoft.Teams.AI.AI
                 string output;
                 if (command is PredictedDoCommand doCommand)
                 {
-                    if (this._actions.ContainsAction(doCommand.Action))
+                    if (_actions.ContainsAction(doCommand.Action))
                     {
                         DoCommandActionData<TState> data = new()
                         {
                             PredictedDoCommand = doCommand,
-                            Handler = this._actions[doCommand.Action].Handler
+                            Handler = _actions[doCommand.Action].Handler
                         };
 
                         // Call action handler
@@ -275,7 +280,7 @@ namespace Microsoft.Teams.AI.AI
 
                         if (turnState.Temp != null)
                         {
-                            turnState.Temp.ActionOutputs[doCommand.ToolCallId ?? doCommand.Action] = output;
+                            turnState.Temp.ActionOutputs[doCommand.Action] = output;
                         }
                     }
                     else
@@ -310,9 +315,14 @@ namespace Microsoft.Teams.AI.AI
             }
 
             // Check for looping
-            return completed && shouldLoop && this.Options.AllowLooping!.Value
-                ? await this.RunAsync(turnContext, turnState, startTime, stepCount, cancellationToken)
-                : completed;
+            if (completed && shouldLoop && Options.AllowLooping!.Value)
+            {
+                return await RunAsync(turnContext, turnState, startTime, stepCount, cancellationToken);
+            }
+            else
+            {
+                return completed;
+            }
         }
 
         private void _SetTempStateValues(TState turnState, ITurnContext turnContext)
