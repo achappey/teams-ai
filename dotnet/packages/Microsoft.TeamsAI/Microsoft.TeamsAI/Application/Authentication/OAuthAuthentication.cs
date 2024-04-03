@@ -3,7 +3,6 @@ using Microsoft.Bot.Schema;
 using Microsoft.Teams.AI.Exceptions;
 using Microsoft.Teams.AI.State;
 using System.Runtime.CompilerServices;
-using System.Threading;
 
 [assembly: InternalsVisibleTo("Microsoft.Teams.AI.Tests")]
 namespace Microsoft.Teams.AI
@@ -125,6 +124,9 @@ namespace Microsoft.Teams.AI
             await UserTokenClientWrapper.SignoutUserAsync(context, _settings.ConnectionName, cancellationToken);
         }
 
+        /// <summary>
+        /// Get user token
+        /// </summary>
         protected virtual async Task<TokenResponse> GetUserToken(ITurnContext context, string connectionName, CancellationToken cancellationToken = default)
         {
             return await UserTokenClientWrapper.GetUserTokenAsync(context, connectionName, "", cancellationToken);
