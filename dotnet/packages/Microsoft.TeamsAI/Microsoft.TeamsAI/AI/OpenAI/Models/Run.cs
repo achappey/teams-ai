@@ -141,6 +141,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public bool? Stream { get; set; }
 
+        [JsonPropertyName("temperature")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public double? Temperature { get; set; }
+
     }
 
     internal class SubmitToolOutputsParams

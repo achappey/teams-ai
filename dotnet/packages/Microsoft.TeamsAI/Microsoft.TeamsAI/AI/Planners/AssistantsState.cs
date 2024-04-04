@@ -53,6 +53,11 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         string? AssistantId { get; set; }
 
         /// <summary>
+        /// Get or set the temperature.
+        /// </summary>
+        double Temperature { get; set; }
+
+        /// <summary>
         /// Get or set the tools.
         /// </summary>
         Dictionary<string, Tool> Tools { get; set; }
@@ -154,5 +159,16 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             get => this.Temp?.Get<Dictionary<string, List<string>>>("assistants_state_submit_tool_map") ?? new Dictionary<string, List<string>>();
             set => this.Temp?.Set("assistants_state_submit_tool_map", value);
         }
+
+        /// <summary>
+        /// Get or set the temperature.
+        /// Stored in ConversationState with key "conversation_temperature".
+        /// </summary>
+        public double Temperature
+        {
+            get => this.Conversation?.Get<double?>("conversation_temperature") ?? 1;
+            set => this.Conversation?.Set("conversation_temperature", value);
+        }
+
     }
 }

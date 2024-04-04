@@ -284,7 +284,6 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Dictionary<string, List<string>> toolMap = new();
             foreach (ToolCall toolCall in requiredAction.SubmitToolOutputs.ToolCalls)
             {
-                // toolMap[toolCall.Function.Name] = toolCall.Id;
                 if (!toolMap.ContainsKey(toolCall.Function.Name))
                 {
                     toolMap[toolCall.Function.Name] = new List<string>();
@@ -436,6 +435,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             RunCreateParams runCreateParams = new()
             {
                 Model = state.Model,
+                Temperature = state.Temperature,
                 AssistantId = state.AssistantId ?? this._options.AssistantId,
                 AdditionalInstructions = state.Temp?.AdditionalInstructions,
                 Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null,
