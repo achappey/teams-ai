@@ -145,6 +145,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI.Models
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public double? Temperature { get; set; }
 
+        [JsonPropertyName("additional_messages")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<MessageCreateParams>? AdditionalMessages { get; set; }
+
     }
 
     internal class SubmitToolOutputsParams

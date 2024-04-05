@@ -94,11 +94,12 @@ namespace Microsoft.Teams.AI.AI.OpenAI
         /// </summary>
         /// <param name="threadId">The thread ID.</param>
         /// <param name="lastMessageId">The last message ID (exclude from the list results).</param>
+        /// <param name="runId">The run ID.</param>
         /// <param name="cancellationToken">A cancellation token that can be used by other objects
         /// or threads to receive notice of cancellation.</param>
         /// <returns>The new messages ordered by created_at timestamp desc.</returns>
         /// <exception cref="HttpOperationException" />
-        public virtual async IAsyncEnumerable<Message> ListNewMessagesAsync(string threadId, string? lastMessageId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public virtual async IAsyncEnumerable<Message> ListNewMessagesAsync(string threadId, string? lastMessageId, string? runId, [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             bool hasMore;
             string? before = lastMessageId;
@@ -108,7 +109,7 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                 ListResponse<Message> listResult;
                 try
                 {
-                    using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", this.BuildListQuery(before, after), OpenAIBetaHeaders, cancellationToken);
+                    using HttpResponseMessage httpResponse = await this._ExecuteGetRequestAsync($"{OpenAIThreadEndpoint}/{threadId}/messages", this.BuildListQuery(before, after, runId), OpenAIBetaHeaders, cancellationToken);
                     string responseJson = await httpResponse.Content.ReadAsStringAsync();
                     listResult = JsonSerializer.Deserialize<ListResponse<Message>>(responseJson) ?? throw new SerializationException($"Failed to deserialize message list result response json: {responseJson}");
                 }
@@ -289,12 +290,12 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             }
         }
 
-        private List<KeyValuePair<string, string>> BuildListQuery(string? before, string? after)
+        private List<KeyValuePair<string, string>> BuildListQuery(string? before, string? after, string? runId)
         {
             List<KeyValuePair<string, string>> result = new();
             result.Add(new("order", "desc"));
 
-            if (string.IsNullOrEmpty(before) && string.IsNullOrEmpty(after))
+            if (string.IsNullOrEmpty(before) && string.IsNullOrEmpty(after) && string.IsNullOrEmpty(runId))
             {
                 return result;
             }
@@ -306,6 +307,10 @@ namespace Microsoft.Teams.AI.AI.OpenAI
             if (!string.IsNullOrEmpty(after))
             {
                 result.Add(new("after", after!));
+            }
+            if (!string.IsNullOrEmpty(runId))
+            {
+                result.Add(new("runId", runId!));
             }
             return result;
         }

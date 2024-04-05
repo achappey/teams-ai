@@ -173,10 +173,10 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             }
         }
 
-        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string lastMessageId, bool excludeText, CancellationToken cancellationToken)
+        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string? lastMessageId, string runId, bool excludeText, CancellationToken cancellationToken)
         {
             // Find the new messages
-            IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, cancellationToken);
+            IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, runId, cancellationToken);
             List<Message> newMessages = new();
             await foreach (Message message in messages.WithCancellation(cancellationToken))
             {
@@ -332,7 +332,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     return this._GeneratePlanFromTools(state, result.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, true, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, result.Id, true, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
@@ -426,11 +426,11 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             string threadId = await this._EnsureThreadCreatedAsync(state, cancellationToken);
 
             // Add the users input to the thread
-            Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
-            {
-                Content = state.Temp?.Input ?? string.Empty,
-                FileIds = state.Files.Any() ? state.Files : null
-            }, cancellationToken);
+            /*     Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
+                 {
+                     Content = state.Temp?.Input ?? string.Empty,
+                     FileIds = state.Files.Any() ? state.Files : null
+                 }, cancellationToken);*/
 
             RunCreateParams runCreateParams = new()
             {
@@ -439,13 +439,20 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 AssistantId = state.AssistantId ?? this._options.AssistantId,
                 AdditionalInstructions = state.Temp?.AdditionalInstructions,
                 Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null,
+                AdditionalMessages = new() {
+                     new()
+                     {
+                         Content = state.Temp?.Input ?? string.Empty,
+                         FileIds = state.Files.Any() ? state.Files : null
+                     }
+                 }
             };
 
             Run? run = await _CreateRunStream(turnContext, threadId, runCreateParams, cancellationToken);
 
             state.ThreadId = threadId;
             state.RunId = run?.Id;
-            state.LastMessageId = message.Id;
+            // state.LastMessageId = message.Id;
             switch (run?.Status)
             {
                 case "requires_action":
@@ -453,7 +460,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     return this._GeneratePlanFromTools(state, run.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(threadId, message.Id, true, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(threadId, null, run.Id, true, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
