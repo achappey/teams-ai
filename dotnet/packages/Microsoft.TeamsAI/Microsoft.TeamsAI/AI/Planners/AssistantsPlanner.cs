@@ -173,7 +173,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             }
         }
 
-        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string? lastMessageId, string runId, bool excludeText, CancellationToken cancellationToken)
+        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string? lastMessageId, string runId, bool excludeText, TState state, CancellationToken cancellationToken)
         {
             // Find the new messages
             IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, runId, cancellationToken);
@@ -186,14 +186,16 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 }
                 else
                 {
-                    newMessages.Add(message);
+                    if (message.Role == "assistant")
+                    {
+                        newMessages.Add(message);
+                    }
                 }
             }
 
-            // ListMessages return messages in desc, reverse to be in asc order
+            state.LastMessageId = newMessages.FirstOrDefault()?.Id;
             newMessages.Reverse();
 
-            // Convert the messages to SAY commands
             Plan plan = new();
             foreach (Message message in newMessages)
             {
@@ -201,10 +203,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 {
                     if (string.Equals(content.Type, "text"))
                     {
-                        if (!excludeText)
-                        {
-                            plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
-                        }
+                        plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
                     }
 
                     if (string.Equals(content.Type, "image_file"))
@@ -332,7 +331,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     return this._GeneratePlanFromTools(state, result.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId!, result.Id, true, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId, result.Id, true, state, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":
@@ -354,7 +353,6 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             return ProcessEventStreamAsync(eventStream, turnContext, cancellationToken);
         }
 
-
         private async Task<Run?> ProcessEventStreamAsync(
             IAsyncEnumerable<(string eventName, string result)> eventStream,
             ITurnContext turnContext,
@@ -365,33 +363,39 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             string? itemId = null;
             int newCharsSinceLastUpdate = 0;
 
+            async Task SendMessageOrUpdateActivityAsync()
+            {
+                string messageText = messageBuilder.ToString().Replace("\n", "<br>");
+                Bot.Schema.Activity sendMessageActivity = MessageFactory.Text(messageText);
+
+                if (itemId != null)
+                {
+                    sendMessageActivity.Id = itemId;
+                    await turnContext.UpdateActivityAsync(sendMessageActivity, cancellationToken);
+                }
+                else
+                {
+                    Bot.Schema.ResourceResponse response = await turnContext.SendActivityAsync(sendMessageActivity, cancellationToken);
+                    itemId = response?.Id;
+                }
+
+                newCharsSinceLastUpdate = 0;
+            }
+
             await foreach ((string eventName, string result) in eventStream.WithCancellation(cancellationToken))
             {
                 if (eventName == "thread.message.delta")
                 {
                     MessageDeltaEvent deltaMessage = JsonSerializer.Deserialize<MessageDeltaEvent>(result)!;
-                    string? deltaContent = deltaMessage.Delta?.Content.FirstOrDefault()?.Text?.Value;
 
-                    if (!string.IsNullOrEmpty(deltaContent))
+                    if (deltaMessage?.Delta?.Content.FirstOrDefault()?.Text?.Value is { } deltaContent && !string.IsNullOrEmpty(deltaContent))
                     {
                         messageBuilder.Append(deltaContent);
-                        newCharsSinceLastUpdate += deltaContent?.Length ?? 0;
+                        newCharsSinceLastUpdate += deltaContent.Length;
 
                         if (newCharsSinceLastUpdate >= 75)
                         {
-                            Bot.Schema.Activity sendMessageActivity = MessageFactory.Text(messageBuilder.ToString().Replace("\n", "<br>"));
-                            if (itemId != null)
-                            {
-                                sendMessageActivity.Id = itemId;
-                                await turnContext.UpdateActivityAsync(sendMessageActivity, cancellationToken);
-                            }
-                            else
-                            {
-                                Bot.Schema.ResourceResponse response = await turnContext.SendActivityAsync(sendMessageActivity, cancellationToken);
-                                itemId = response?.Id;
-                            }
-                            // messageBuilder.Clear();
-                            newCharsSinceLastUpdate = 0;
+                            await SendMessageOrUpdateActivityAsync();
                         }
                     }
                 }
@@ -401,24 +405,13 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 }
             }
 
-            // Verwerk het finale bericht na de loop.
             if (newCharsSinceLastUpdate > 0)
             {
-                Bot.Schema.Activity finalUpdateActivity = MessageFactory.Text(messageBuilder.ToString().Replace("\n", "<br>"));
-                if (itemId != null)
-                {
-                    finalUpdateActivity.Id = itemId;
-                    await turnContext.UpdateActivityAsync(finalUpdateActivity, cancellationToken);
-                }
-                else
-                {
-                    await turnContext.SendActivityAsync(finalUpdateActivity, cancellationToken);
-                }
+                await SendMessageOrUpdateActivityAsync();
             }
 
             return run;
         }
-
 
         private async Task<Plan> _SubmitUserInputAsync(ITurnContext turnContext, TState state, CancellationToken cancellationToken)
         {
@@ -460,7 +453,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                     return this._GeneratePlanFromTools(state, run.RequiredAction!);
                 case "completed":
                     state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(threadId, null, run.Id, true, cancellationToken);
+                    return await this._GeneratePlanFromMessagesAsync(threadId, state.LastMessageId, run.Id, true, state, cancellationToken);
                 case "cancelled":
                     return new Plan();
                 case "expired":

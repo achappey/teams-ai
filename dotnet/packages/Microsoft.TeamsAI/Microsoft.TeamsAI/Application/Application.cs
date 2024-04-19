@@ -904,7 +904,7 @@ namespace Microsoft.Teams.AI
                     if (response.Status == SignInStatus.Error && response.Cause != AuthExceptionReason.InvalidActivity)
                     {
                         AuthUtilities.DeleteUserInSignInFlow(turnState);
-                        throw new TeamsAIException("An error occurred when trying to sign in.", response.Error!);
+                        throw new TeamsAIException($"An error occurred when trying to sign in.", response.Error!);
                     }
                 }
 

@@ -166,9 +166,8 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         public double Temperature
         {
-            get => this.Conversation?.Get<double?>("conversation_temperature") ?? 1;
-            set => this.Conversation?.Set("conversation_temperature", value);
+            get => this.User?.Get<double?>("conversation_temperature") ?? 0.3;
+            set => this.User?.Set("conversation_temperature", value);
         }
-
     }
 }

@@ -214,6 +214,16 @@ namespace Microsoft.Teams.AI.AI.OpenAI
                     yield return (eventName: eventType, result: eventData);
                 }
 
+                if (eventType == "error")
+                {
+                    Newtonsoft.Json.Linq.JObject errorData = Newtonsoft.Json.Linq.JObject.Parse(eventDataBuilder.ToString());
+                    string? errorMessage = errorData["error"]?["message"]?.ToString();
+                    if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        throw new Exception(errorMessage);
+                    }
+                }
+
                 eventDataBuilder.Clear();
             }
         }
