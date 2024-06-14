@@ -40,7 +40,7 @@ namespace Microsoft.Teams.AI.AI
             this._actions = new ActionCollection<TState>();
 
             // Import default actions
-            this.ImportActions(new DefaultActions<TState>(loggerFactory));
+            this.ImportActions(new DefaultActions<TState>(options.EnableFeedbackLoop, loggerFactory));
         }
 
         /// <summary>

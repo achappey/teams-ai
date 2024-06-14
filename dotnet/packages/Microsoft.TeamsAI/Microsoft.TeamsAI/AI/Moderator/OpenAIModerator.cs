@@ -1,9 +1,8 @@
 ﻿using Microsoft.Teams.AI.AI.Planners;
 using Microsoft.Teams.AI.Exceptions;
-using Microsoft.Extensions.Logging;
 using Microsoft.Teams.AI.State;
 using Microsoft.Bot.Builder;
-using Microsoft.Teams.AI.AI.OpenAI;
+using OpenAI.Moderations;
 
 namespace Microsoft.Teams.AI.AI.Moderator
 {
@@ -14,37 +13,30 @@ namespace Microsoft.Teams.AI.AI.Moderator
     public class OpenAIModerator<TState> : IModerator<TState> where TState : TurnState
     {
         private readonly OpenAIModeratorOptions _options;
-        private readonly OpenAIClient _client;
+        private readonly ModerationClient _client;
 
         /// <summary>
         /// Constructs an instance of the moderator.
         /// </summary>
         /// <param name="options">Options to configure the moderator</param>
-        /// <param name="loggerFactory">The logger factory instance</param>
-        /// <param name="httpClient">HTTP client.</param>
-        public OpenAIModerator(OpenAIModeratorOptions options, ILoggerFactory? loggerFactory = null, HttpClient? httpClient = null)
+        public OpenAIModerator(OpenAIModeratorOptions options)
         {
-            this._options = options;
+            _options = options;
 
-            OpenAIClientOptions clientOptions = new(this._options.ApiKey)
-            {
-                Organization = this._options.Organization,
-            };
-
-            this._client = new OpenAIClient(clientOptions, loggerFactory, httpClient);
+            this._client = new ModerationClient(options.Model, options.ApiKey);
         }
 
         /// <inheritdoc />
         public async Task<Plan?> ReviewInputAsync(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken = default)
         {
-            switch (this._options.Moderate)
+            switch (_options.Moderate)
             {
                 case ModerationType.Input:
                 case ModerationType.Both:
                 {
                     string input = turnState.Temp?.Input ?? turnContext.Activity.Text;
 
-                    return await this._HandleTextModerationAsync(input, true, cancellationToken);
+                    return await _HandleTextModerationAsync(input, true);
                 }
                 default:
                     break;
@@ -56,7 +48,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <inheritdoc />
         public async Task<Plan> ReviewOutputAsync(ITurnContext turnContext, TState turnState, Plan plan, CancellationToken cancellationToken = default)
         {
-            switch (this._options.Moderate)
+            switch (_options.Moderate)
             {
                 case ModerationType.Output:
                 case ModerationType.Both:
@@ -65,10 +57,10 @@ namespace Microsoft.Teams.AI.AI.Moderator
                     {
                         if (command is PredictedSayCommand sayCommand)
                         {
-                            string output = sayCommand.Response;
+                            string output = sayCommand.Response.Content;
 
                             // If plan is flagged it will be replaced
-                            Plan? newPlan = await this._HandleTextModerationAsync(output, false, cancellationToken);
+                            Plan? newPlan = await _HandleTextModerationAsync(output, false);
 
                             return newPlan ?? plan;
                         }
@@ -83,16 +75,15 @@ namespace Microsoft.Teams.AI.AI.Moderator
             return plan;
         }
 
-        private async Task<Plan?> _HandleTextModerationAsync(string text, bool isModelInput, CancellationToken cancellationToken = default)
+        private async Task<Plan?> _HandleTextModerationAsync(string text, bool isModelInput)
         {
             try
             {
-                ModerationResponse response = await this._client.ExecuteTextModerationAsync(text, this._options.Model, cancellationToken);
-                ModerationResult? result = response.Results.Count > 0 ? response.Results[0] : null;
+                System.ClientModel.ClientResult<OpenAI.Moderations.ModerationResult> response = await _client.ClassifyTextInputAsync(text);
 
-                if (result != null)
+                if (response.Value != null)
                 {
-                    if (result.Flagged)
+                    if (response.Value.Flagged)
                     {
                         string actionName = isModelInput ? AIConstants.FlaggedInputActionName : AIConstants.FlaggedOutputActionName;
 
@@ -103,7 +94,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
                             {
                                 new PredictedDoCommand(actionName, new Dictionary<string, object?>
                                 {
-                                    { "Result", result }
+                                    { "Result", response.Value }
                                 })
                             }
                         };

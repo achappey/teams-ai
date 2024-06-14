@@ -1,10 +1,17 @@
 ﻿using Microsoft.Bot.Builder;
+using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
-using Microsoft.Teams.AI.AI.OpenAI;
-using Microsoft.Teams.AI.AI.OpenAI.Models;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Teams.AI.AI.Action;
+using Microsoft.Teams.AI.AI.Models;
 using Microsoft.Teams.AI.Exceptions;
 using Microsoft.Teams.AI.State;
 using Microsoft.Teams.AI.Utilities;
+using OpenAI;
+using OpenAI.Assistants;
+using OpenAI.Files;
+using OpenAI.VectorStores;
+using System.ClientModel;
 using System.Text;
 using System.Text.Json;
 
@@ -22,37 +29,21 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         private static readonly TimeSpan DEFAULT_POLLING_INTERVAL = TimeSpan.FromSeconds(1);
 
         private readonly AssistantsPlannerOptions _options;
-        private readonly OpenAIClient _openAIClient;
 
-        /// <summary>
-        /// Static helper method for programmatically creating an assistant.
-        /// </summary>
-        /// <param name="apiKey">OpenAI API key.</param>
-        /// <param name="organization">OpenAI organization.</param>
-        /// <param name="request">Definition of the assistant to create.</param>
-        /// <param name="cancellationToken">A cancellation token that can be used by other objects
-        /// or threads to receive notice of cancellation.</param>
-        /// <returns>The created assistant.</returns>
-        public static async Task<Assistant> CreateAssistantAsync(string apiKey, string? organization, AssistantCreateParams request, CancellationToken cancellationToken = default)
-        {
-            Verify.ParamNotNull(apiKey);
-            Verify.ParamNotNull(request);
+        private readonly AssistantClient _client;
 
-            OpenAIClient client = new(new OpenAIClientOptions(apiKey)
-            {
-                Organization = organization
-            });
+        private readonly VectorStoreClient _vectorStoreClient;
 
-            return await client.CreateAssistantAsync(request, cancellationToken);
-        }
+        private readonly FileClient _fileClient;
+
+        private readonly ILogger _logger;
 
         /// <summary>
         /// Create new AssistantsPlanner.
         /// </summary>
         /// <param name="options">Options for configuring the AssistantsPlanner.</param>
         /// <param name="loggerFactory">The logger factory instance.</param>
-        /// <param name="httpClient">HTTP client.</param>
-        public AssistantsPlanner(AssistantsPlannerOptions options, ILoggerFactory? loggerFactory = null, HttpClient? httpClient = null)
+        public AssistantsPlanner(AssistantsPlannerOptions options, ILoggerFactory? loggerFactory = null)
         {
             Verify.ParamNotNull(options);
             Verify.ParamNotNull(options.ApiKey, "AssistantsPlannerOptions.ApiKey");
@@ -63,12 +54,29 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 Organization = options.Organization,
                 PollingInterval = options.PollingInterval ?? DEFAULT_POLLING_INTERVAL
             };
-            this._openAIClient = new OpenAIClient(new OpenAIClientOptions(this._options.ApiKey)
-            {
-                Organization = this._options.Organization
-            },
-            loggerFactory,
-            httpClient);
+
+            this._logger = loggerFactory == null ? NullLogger.Instance : loggerFactory.CreateLogger<AssistantsPlanner<TState>>();
+            this._client = _CreateClient(options.ApiKey);
+            this._vectorStoreClient = new VectorStoreClient(options.ApiKey);
+            this._fileClient = new FileClient(options.ApiKey);
+        }
+
+        /// <summary>
+        /// Static helper method for programmatically creating an assistant.
+        /// </summary>
+        /// <param name="apiKey">OpenAI API key.</param>
+        /// <param name="model">OpenAI model.</param>
+        /// <param name="request">Definition of the assistant to create.</param>
+        /// or threads to receive notice of cancellation.</param>
+        /// <returns>The created assistant.</returns>
+        public static async Task<Assistant> CreateAssistantAsync(string apiKey, string model, AssistantCreationOptions request)
+        {
+            Verify.ParamNotNull(apiKey);
+            Verify.ParamNotNull(request);
+
+            AssistantClient client = _CreateClient(apiKey);
+
+            return await client.CreateAssistantAsync(model, request);
         }
 
         /// <inheritdoc/>
@@ -88,7 +96,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             Verify.ParamNotNull(ai);
 
             // Create a new thread if we don't have one already
-            string threadId = await _EnsureThreadCreatedAsync(turnState, cancellationToken);
+            string threadId = await _EnsureThreadCreatedAsync(turnState);
 
             // Add the users input to the thread or send tool outputs
             if (turnState.SubmitToolOutputs)
@@ -107,52 +115,145 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             }
         }
 
-        private async Task<string> _EnsureThreadCreatedAsync(TState state, CancellationToken cancellationToken)
+        private async Task<string> _EnsureThreadCreatedAsync(TState state)
         {
+            List<string> fileSearchFiles = state.Attachments
+                                .Where(t => t.Tools.Any(a => a == "file_search"))
+                                .Select(t => t.FileId)
+                                .ToList();
+
+            List<string> codeInterpreterFiles = state.Attachments
+                                .Where(t => t.Tools.Any(a => a == "code_interpreter"))
+                                .Select(t => t.FileId)
+                                .ToList();
+
+            VectorStoreFileAssociationOptions chunkingStrategy = new()
+            {
+                ChunkingStrategy = new VectorStoreChunkingStrategy()
+                {
+                    Type = "static",
+                    Static = new VectorStoreStaticChunkingStrategy()
+                    {
+                        MaxChunkSizeTokens = state.MaxChunkSizeTokens,
+                        ChunkOverlapTokens = state.ChunkOverlapTokens
+                    }
+                }
+            };
+
             if (state.ThreadId == null)
             {
-                OpenAI.Models.Thread thread = await this._openAIClient.CreateThreadAsync(new(), cancellationToken);
-                state.ThreadId = thread.Id;
+                ThreadCreationOptions threadCreationOptions = new()
+                {
+                    ToolResources = new()
+                    {
+                        FileSearch = fileSearchFiles.Any() ? new()
+                        {
+                            NewVectorStores = {
+                                  new VectorStoreCreationHelper(fileSearchFiles)
+                              }
+                        } : null,
+                        CodeInterpreter = codeInterpreterFiles.Any() ? new()
+                        {
+                            FileIds = codeInterpreterFiles
+                        } : null
+                    }
+                };
+
+                ClientResult<AssistantThread> thread = await this._client.CreateThreadAsync(threadCreationOptions);
+
+                state.ThreadId = thread.Value.Id;
             }
+            else
+            {
+                if (fileSearchFiles.Any() || codeInterpreterFiles.Any())
+                {
+                    ClientResult<AssistantThread> thread = await _client.GetThreadAsync(state.ThreadId);
+                    AssistantThread assistantThread = thread.Value;
+                    FileSearchToolResources? fileSearch = assistantThread.ToolResources.FileSearch;
+
+                    if (fileSearchFiles.Any())
+                    {
+                        _logger.LogInformation("Ensure file_search");
+
+                        if (assistantThread.ToolResources.FileSearch?.VectorStoreIds?.Count() > 0)
+                        {
+                            foreach (string file in fileSearchFiles)
+                            {
+                                //TODO ChunkingStrategy = chunkingStrategy
+                                await _vectorStoreClient.AddFileToVectorStoreAsync(assistantThread.ToolResources.FileSearch.VectorStoreIds.First(), file,
+                                    chunkingStrategy);
+                            }
+                        }
+                        else
+                        {
+                            //TODO ChunkingStrategy = chunkingStrategy
+                            VectorStore store = await _vectorStoreClient.CreateVectorStoreAsync(new VectorStoreCreationOptions()
+                            {
+                                FileIds = fileSearchFiles,
+                                ChunkingStrategy = chunkingStrategy.ChunkingStrategy
+                            });
+
+                            fileSearch = new()
+                            {
+                                VectorStoreIds = [store.Id]
+                            };
+
+                            await _client.ModifyThreadAsync(assistantThread.Id, new()
+                            {
+                                ToolResources = new()
+                                {
+                                    FileSearch = fileSearch,
+                                    CodeInterpreter = assistantThread.ToolResources.CodeInterpreter.FileIds.Any()
+                                        ? assistantThread.ToolResources.CodeInterpreter
+                                        : null
+                                }
+                            });
+                        }
+
+                    }
+
+                    if (codeInterpreterFiles.Any())
+                    {
+                        _logger.LogInformation($"Ensure file_search. Thread: {assistantThread.Id}");
+
+                        await _client.ModifyThreadAsync(assistantThread.Id, new()
+                        {
+                            ToolResources = new()
+                            {
+                                FileSearch = fileSearch,
+                                CodeInterpreter = new()
+                                {
+                                    FileIds = [.. assistantThread.ToolResources.CodeInterpreter.FileIds, .. codeInterpreterFiles]
+                                }
+                            }
+                        });
+
+                    }
+                }
+
+            }
+
+            state.Attachments = [];
 
             return state.ThreadId;
         }
 
-        private bool _IsRunCompleted(Run run)
+        private bool _IsRunCompleted(ThreadRun run)
         {
-            switch (run.Status)
-            {
-                case "completed":
-                case "failed":
-                case "cancelled":
-                case "expired":
-                    return true;
-                default: return false;
-            }
+            return run.Status.IsTerminal;
         }
 
-        private async Task<Run> _WaitForRunAsync(string threadId, string runId, bool handleActions, CancellationToken cancellationToken)
+        private async Task<ThreadRun> _WaitForRunAsync(string threadId, string runId, bool handleActions, CancellationToken cancellationToken)
         {
             while (true)
             {
                 await Task.Delay((TimeSpan)this._options.PollingInterval!, cancellationToken);
 
-                Run run = await this._openAIClient.RetrieveRunAsync(threadId, runId, cancellationToken);
-                switch (run.Status)
+                ClientResult<ThreadRun> run = await this._client.GetRunAsync(threadId, runId);
+
+                if ((run.Value.Status == RunStatus.RequiresAction && handleActions) || run.Value.Status.IsTerminal)
                 {
-                    case "requires_action":
-                        if (handleActions)
-                        {
-                            return run;
-                        }
-                        break;
-                    case "cancelled":
-                    case "failed":
-                    case "completed":
-                    case "expired":
-                        return run;
-                    default:
-                        break;
+                    return run.Value;
                 }
             }
         }
@@ -162,31 +263,43 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             // Loop until the last run is completed
             while (true)
             {
-                Run? run = await this._openAIClient.RetrieveLastRunAsync(threadId, cancellationToken);
-                if (run == null || this._IsRunCompleted(run))
+                AsyncPageableCollection<ThreadRun> runs = _client.GetRunsAsync(threadId, ListOrder.NewestFirst);
+                List<ThreadRun> allRuns = [];
+                await foreach (ThreadRun threadRun in runs)
+                {
+                    allRuns.Add(threadRun);
+                }
+
+                if (allRuns == null || allRuns.Count() == 0)
+                {
+                    return;
+                }
+
+                ThreadRun? lastRun = allRuns.ElementAt(0);
+                if (lastRun == null || _IsRunCompleted(lastRun))
                 {
                     return;
                 }
 
                 // Wait for the current run to complete and then loop to see if there's already a new run.
-                await this._WaitForRunAsync(threadId, run.Id, false, cancellationToken);
+                await _WaitForRunAsync(threadId, lastRun.Id, false, cancellationToken);
             }
         }
 
-        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, string? lastMessageId, string runId, bool excludeText, TState state, CancellationToken cancellationToken)
+        private async Task<Plan> _GeneratePlanFromMessagesAsync(string threadId, TState state)
         {
-            // Find the new messages
-            IAsyncEnumerable<Message> messages = this._openAIClient.ListNewMessagesAsync(threadId, lastMessageId, runId, cancellationToken);
-            List<Message> newMessages = new();
-            await foreach (Message message in messages.WithCancellation(cancellationToken))
+            AsyncPageableCollection<ThreadMessage> messageResponse = this._client.GetMessagesAsync(threadId, ListOrder.NewestFirst);
+
+            List<ThreadMessage> newMessages = new();
+            await foreach (ThreadMessage message in messageResponse)
             {
-                if (string.Equals(message.Id, lastMessageId))
+                if (string.Equals(message.Id, state.LastMessageId))
                 {
                     break;
                 }
                 else
                 {
-                    if (message.Role == "assistant")
+                    if (message.Role == MessageRole.Assistant)
                     {
                         newMessages.Add(message);
                     }
@@ -197,104 +310,79 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             newMessages.Reverse();
 
             Plan plan = new();
-            foreach (Message message in newMessages)
+
+            foreach (ThreadMessage message in newMessages)
             {
-                foreach (MessageContent content in message.Content)
+                IEnumerable<MessageContent> textMessageContentItems = message.Content.Where(a => !string.IsNullOrEmpty(a.Text));
+
+                foreach (MessageContent content in textMessageContentItems)
                 {
-                    if (string.Equals(content.Type, "text"))
+                    MessageContext context = new();
+                    Dictionary<string, OpenAIFileInfo> files = new();
+
+                    foreach (IGrouping<string, TextAnnotation>? annotation in content.TextAnnotations.GroupBy(t => t.InputFileId ?? t.OutputFileId) ?? [])
                     {
-                        plan.Commands.Add(new PredictedSayCommand(content.Text?.Value ?? string.Empty));
+                        ClientResult<OpenAIFileInfo> file = await this._fileClient.GetFileAsync(annotation.Key);
+
+                        files.Add(file.Value.Id, file);
                     }
 
-                    if (string.Equals(content.Type, "image_file"))
+                    foreach (TextAnnotation annotation in content.TextAnnotations.Where(a => a.InputFileId != null))
                     {
-                        if (content.ImageFile?.FileId != null)
-                        {
-                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(content.ImageFile.FileId);
-                            byte[] fileContent = await this._openAIClient.RetrieveFileContentAsync(content.ImageFile.FileId);
+                        context.Citations.Add(new(!string.IsNullOrEmpty(annotation.InputQuote) ?
+                              $"{annotation.StartIndex}-{annotation.EndIndex}: {annotation.InputQuote}"
+                              : $"{annotation.StartIndex}-{annotation.EndIndex}", annotation.TextToReplace, files[annotation.InputFileId].Filename));
+                    }
 
-                            plan.Commands.Add(new PredictedDoCommand(content.Type,
-                                     new Dictionary<string, object?>() {
-                                    {"file_id", content.ImageFile?.FileId},
+                    foreach (TextAnnotation annotation in content.TextAnnotations.Where(a => a.OutputFileId != null))
+                    {
+                        context.Citations.Add(new(!string.IsNullOrEmpty(annotation.TextToReplace) ?
+                              $"{annotation.StartIndex}-{annotation.EndIndex}: {annotation.TextToReplace}"
+                              : $"{annotation.StartIndex}-{annotation.EndIndex}", annotation.TextToReplace, $"{annotation.TextToReplace}?file_id={annotation.OutputFileId}"));
+                    }
+
+                    plan.Commands.Add(new PredictedSayCommand(new ChatMessage(ChatRole.Assistant)
+                    {
+                        Content = content.Text ?? string.Empty,
+                        Context = context
+                    }));
+                }
+
+                foreach (MessageContent content in message.Content.Where(a => !string.IsNullOrEmpty(a.ImageFileId)))
+                {
+                    OpenAIFileInfo file = await this._fileClient.GetFileAsync(content.ImageFileId);
+                    ClientResult<BinaryData> fileContent = await this._fileClient.DownloadFileAsync(content.ImageFileId);
+
+                    plan.Commands.Insert(0, new PredictedDoCommand("image_file",
+                             new Dictionary<string, object?>() {
+                                    {"file_id", content.ImageFileId},
                                     {"filename", file.Filename},
-                                    {"fileContent", fileContent}
-                                         }));
-                        }
-                    }
-
-                    IEnumerable<TextAnnotation>? citations = content.Text?.Annotations.Where(t => t.Type == "file_citation");
-                    IEnumerable<GroupedTextAnnotation>? groupedCitations = citations?.GroupBy(y => y.Text).Select(y => new GroupedTextAnnotation()
-                    {
-                        Text = y.Key,
-                        Ranges = y.Select(z => $"{z.StartIndex}-{z.EndIndex}"),
-                        FileCitation = y.FirstOrDefault().FileCitation
-                    });
-
-                    if (groupedCitations != null)
-                    {
-                        foreach (GroupedTextAnnotation annotation in groupedCitations)
-                        {
-                            if (annotation.FileCitation != null && !string.IsNullOrEmpty(annotation.FileCitation.FileId))
-                            {
-                                OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FileCitation.FileId);
-
-                                plan.Commands.Add(new PredictedDoCommand("file_citation",
-                                    new Dictionary<string, object?>() {
-                                    {"text", annotation.Text},
-                                    {"ranges", string.Join(", ", annotation.Ranges)},
-                                    {"file_id", annotation.FileCitation?.FileId},
-                                    {"filename", file.Filename},
-                                    {"quote", annotation.FileCitation?.Quote}
-                                        }));
-                            }
-                        }
-                    }
-
-                    IEnumerable<TextAnnotation>? filePaths = content.Text?.Annotations?.Where(t => t.Type == "file_path");
-
-                    foreach (TextAnnotation annotation in filePaths ?? new List<TextAnnotation>())
-                    {
-                        if (annotation.FilePath != null && !string.IsNullOrEmpty(annotation.FilePath.FileId))
-                        {
-                            OpenAI.Models.File file = await this._openAIClient.RetrieveFileAsync(annotation.FilePath.FileId);
-                            byte[] fileContent = await this._openAIClient.RetrieveFileContentAsync(annotation.FilePath.FileId);
-
-                            plan.Commands.Add(new PredictedDoCommand(annotation.Type,
-                                new Dictionary<string, object?>() {
-                                    {"text", annotation.Text},
-                                    {"start_index", annotation.StartIndex},
-                                    {"end_index", annotation.EndIndex},
-                                    {"file_id", annotation.FilePath?.FileId},
-                                    {"filename", Path.GetFileName(file.Filename)},
-                                    {"fileContent", fileContent}
-                                    }));
-                        }
-                    }
-
+                                    {"fileContent", fileContent.Value.ToArray()}
+                        }));
                 }
             }
 
             return plan;
         }
 
-        private Plan _GeneratePlanFromTools(TState state, RequiredAction requiredAction)
+        private Plan _GeneratePlanFromTools(TState state, IReadOnlyList<RequiredAction> requiredActions)
         {
             Plan plan = new();
             Dictionary<string, List<string>> toolMap = new();
-            foreach (ToolCall toolCall in requiredAction.SubmitToolOutputs.ToolCalls)
+            foreach (RequiredAction toolCall in requiredActions)
             {
-                if (!toolMap.ContainsKey(toolCall.Function.Name))
+                if (!toolMap.ContainsKey(toolCall.FunctionName))
                 {
-                    toolMap[toolCall.Function.Name] = new List<string>();
+                    toolMap[toolCall.FunctionName] = new List<string>();
                 }
-                toolMap[toolCall.Function.Name].Add(toolCall.Id);
+                toolMap[toolCall.FunctionName].Add(toolCall.ToolCallId);
                 plan.Commands.Add(new PredictedDoCommand
                 (
-                    toolCall.Function.Name,
-                    JsonSerializer.Deserialize<Dictionary<string, object?>>(toolCall.Function.Arguments)
+                    toolCall.FunctionName,
+                    JsonSerializer.Deserialize<Dictionary<string, object?>>(toolCall.FunctionArguments)
                     ?? new Dictionary<string, object?>()
                 )
-                { ToolCallId = toolCall.Id });
+                { ToolCallId = toolCall.ToolCallId });
             }
             state.SubmitToolMap = toolMap;
             return plan;
@@ -319,147 +407,267 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 }
             }
 
-            Run? result = await _CreateSubmitOutputToolsStream(turnContext, state.ThreadId!, state.RunId!, new()
-            {
-                ToolOutputs = toolOutputs
-            }, cancellationToken);
+            ThreadRun? run;
 
-            switch (result?.Status)
+            if (state.Streaming)
             {
-                case "requires_action":
-                    state.SubmitToolOutputs = true;
-                    return this._GeneratePlanFromTools(state, result.RequiredAction!);
-                case "completed":
-                    state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(state.ThreadId!, state.LastMessageId, result.Id, true, state, cancellationToken);
-                case "cancelled":
+                run = await _CreateSubmitOutputToolsStream(turnContext, state, state.ThreadId!, state.RunId!, toolOutputs, cancellationToken);
+            }
+            else
+            {
+                ClientResult<ThreadRun> submitResult = await _client.SubmitToolOutputsToRunAsync(state.ThreadId!, state.RunId!, toolOutputs);
+                run = submitResult.Value;
+                run = await _WaitForRunAsync(state.ThreadId!, run.Id, true, cancellationToken);
+            }
+
+            while (run?.Status == RunStatus.InProgress)
+            {
+                run = await _WaitForRunAsync(state.ThreadId!, run.Id, true, cancellationToken);
+            }
+
+            if (run!.Status == RunStatus.RequiresAction)
+            {
+                if (run.RequiredActions == null)
+                {
                     return new Plan();
-                case "expired":
-                    return new Plan(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
-                default:
-                    throw new TeamsAIException($"Run failed {result?.Status}. ErrorCode: {result?.LastError?.Code}. ErrorMessage: {result?.LastError?.Message}");
+                }
+
+                state.SubmitToolOutputs = true;
+
+                return _GeneratePlanFromTools(state, run.RequiredActions);
+            }
+            else if (run.Status == RunStatus.Completed)
+            {
+                state.SubmitToolOutputs = false;
+                return await _GeneratePlanFromMessagesAsync(state.ThreadId!, state);
+            }
+            else if (run.Status == RunStatus.Cancelled)
+            {
+                return new Plan();
+            }
+            else if (run.Status == RunStatus.Expired)
+            {
+                return new Plan(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
+            }
+            else
+            {
+                throw new TeamsAIException($"Run failed {run.Status}. ErrorCode: {run.LastError?.Code}. ErrorMessage: {run.LastError?.Message}");
             }
         }
 
-        private Task<Run?> _CreateRunStream(ITurnContext turnContext, string threadId, RunCreateParams runCreateParams, CancellationToken cancellationToken)
+        private Task<ThreadRun?> _CreateRunStream(ITurnContext turnContext, TState state, string threadId, string assistantId, RunCreationOptions runCreationOptions, CancellationToken cancellationToken)
         {
-            IAsyncEnumerable<(string eventName, string result)> eventStream = this._openAIClient.CreateRunStreamAsync(threadId, runCreateParams, cancellationToken);
-            return ProcessEventStreamAsync(eventStream, turnContext, cancellationToken);
+            AsyncResultCollection<StreamingUpdate> eventStream = this._client.CreateRunStreamingAsync(threadId, assistantId, runCreationOptions);
+
+            return ProcessEventStreamAsync(eventStream, turnContext, state, cancellationToken);
         }
 
-        private Task<Run?> _CreateSubmitOutputToolsStream(ITurnContext turnContext, string threadId, string runId, SubmitToolOutputsParams submitToolOutputsParams, CancellationToken cancellationToken)
+        private Task<ThreadRun?> _CreateSubmitOutputToolsStream(ITurnContext turnContext, TState state, string threadId, string runId, IEnumerable<ToolOutput> toolOutputs, CancellationToken cancellationToken)
         {
-            IAsyncEnumerable<(string eventName, string result)> eventStream = this._openAIClient.CreateSubmitOutputToolsStreamAsync(threadId, runId, submitToolOutputsParams, cancellationToken);
-            return ProcessEventStreamAsync(eventStream, turnContext, cancellationToken);
+            AsyncResultCollection<StreamingUpdate> eventStream = this._client.SubmitToolOutputsToRunStreamingAsync(threadId, runId, toolOutputs);
+
+            return ProcessEventStreamAsync(eventStream, turnContext, state, cancellationToken);
         }
 
-        private async Task<Run?> ProcessEventStreamAsync(
-            IAsyncEnumerable<(string eventName, string result)> eventStream,
+        private async Task<ThreadRun?> ProcessEventStreamAsync(
+            AsyncResultCollection<StreamingUpdate> eventStream,
             ITurnContext turnContext,
+            TState state,
             CancellationToken cancellationToken)
         {
-            Run? run = null;
+            ThreadRun? run = null;
             StringBuilder messageBuilder = new();
             string? itemId = null;
             int newCharsSinceLastUpdate = 0;
+            AIEntity entity = new();
+
+            Activity sendMessageActivity = new()
+            {
+                Type = ActivityTypes.Message,
+                ChannelData = new
+                {
+                    feedbackLoopEnabled = true
+                },
+                Entities = new List<Entity>() { entity }
+            };
 
             async Task SendMessageOrUpdateActivityAsync()
             {
-                string messageText = messageBuilder.ToString().Replace("\n", "<br>");
-                Bot.Schema.Activity sendMessageActivity = MessageFactory.Text(messageText);
+                string messageText = messageBuilder.ToString();
+
+                if (messageText.Contains("\n"))
+                {
+                    messageText = messageText.Replace("\n", "<br>");
+                }
+
+                sendMessageActivity.Text = messageText;
 
                 if (itemId != null)
                 {
                     sendMessageActivity.Id = itemId;
-                    await turnContext.UpdateActivityAsync(sendMessageActivity, cancellationToken);
+
+                    await turnContext.UpdateActivityAsync(sendMessageActivity);
                 }
                 else
                 {
-                    Bot.Schema.ResourceResponse response = await turnContext.SendActivityAsync(sendMessageActivity, cancellationToken);
+                    ResourceResponse response = await turnContext.SendActivityAsync(sendMessageActivity);
                     itemId = response?.Id;
                 }
 
                 newCharsSinceLastUpdate = 0;
             }
 
-            await foreach ((string eventName, string result) in eventStream.WithCancellation(cancellationToken))
+            await foreach (StreamingUpdate? streamingUpdate in eventStream.WithCancellation(cancellationToken))
             {
-                if (eventName == "thread.message.delta")
+                if (streamingUpdate is MessageContentUpdate contentUpdate)
                 {
-                    MessageDeltaEvent deltaMessage = JsonSerializer.Deserialize<MessageDeltaEvent>(result)!;
-
-                    if (deltaMessage?.Delta?.Content.FirstOrDefault()?.Text?.Value is { } deltaContent && !string.IsNullOrEmpty(deltaContent))
+                    if (!string.IsNullOrEmpty(contentUpdate.Text))
                     {
-                        messageBuilder.Append(deltaContent);
-                        newCharsSinceLastUpdate += deltaContent.Length;
+                        messageBuilder.Append(contentUpdate.Text);
+                        newCharsSinceLastUpdate += contentUpdate.Text.Length;
 
-                        if (newCharsSinceLastUpdate >= 75)
+                        if (newCharsSinceLastUpdate >= 100)
                         {
                             await SendMessageOrUpdateActivityAsync();
                         }
                     }
                 }
-                else
+                else if (streamingUpdate is RunUpdate runUpdate)
                 {
-                    run = JsonSerializer.Deserialize<Run>(result)!;
+                    run = runUpdate.Value;
                 }
             }
+
 
             if (newCharsSinceLastUpdate > 0)
             {
                 await SendMessageOrUpdateActivityAsync();
             }
 
+            state.Temp.LastStreamedReplyId = itemId ?? string.Empty;
+
             return run;
         }
 
         private async Task<Plan> _SubmitUserInputAsync(ITurnContext turnContext, TState state, CancellationToken cancellationToken)
         {
-            // Get the current thread_id
-            string threadId = await this._EnsureThreadCreatedAsync(state, cancellationToken);
+            string threadId = await this._EnsureThreadCreatedAsync(state);
 
-            // Add the users input to the thread
-            /*     Message message = await this._openAIClient.CreateMessageAsync(threadId, new()
-                 {
-                     Content = state.Temp?.Input ?? string.Empty,
-                     FileIds = state.Files.Any() ? state.Files : null
-                 }, cancellationToken);*/
+            List<ThreadInitializationMessage> input = new([
+                new ThreadInitializationMessage(
+                    [state.Temp?.Input ?? string.Empty,
+                    .. state.Images.Select(a => MessageContent.FromImageFileId(a))
+                    ])
+                ]);
 
-            RunCreateParams runCreateParams = new()
+            ToolConstraint? toolchoice = null;
+
+            if (!string.IsNullOrEmpty(state.ToolChoice))
             {
-                Model = state.Model,
-                Temperature = state.Temperature,
-                AssistantId = state.AssistantId ?? this._options.AssistantId,
-                AdditionalInstructions = state.Temp?.AdditionalInstructions,
-                Tools = state.Tools.Any() ? state.Tools.Select(t => t.Value).ToList() : null,
-                AdditionalMessages = new() {
-                     new()
-                     {
-                         Content = state.Temp?.Input ?? string.Empty,
-                         FileIds = state.Files.Any() ? state.Files : null
-                     }
-                 }
-            };
+                toolchoice = state.ToolChoice == "file_search"
+                  ? new(ToolDefinition.CreateFileSearch()) : state.ToolChoice == "code_interpreter"
+                  ? new(ToolDefinition.CreateCodeInterpreter())
+                  : new(ToolDefinition.CreateFunction(state.ToolChoice));
+            }
 
-            Run? run = await _CreateRunStream(turnContext, threadId, runCreateParams, cancellationToken);
+            RunCreationOptions runCreateParams =
+             new()
+             {
+                 ModelOverride = !string.IsNullOrEmpty(state.Model) ? state.Model : null,
+                 Temperature = (float?)state.Temperature,
+                 ToolConstraint = toolchoice,
+                 NucleusSamplingFactor = (float?)state.TopP,
+                 ParallelToolCalls = state.ParallelToolCalls,
+                 AdditionalInstructions = state.Temp?.AdditionalInstructions,
+                 TruncationStrategy = state.TruncationStrategy != "auto"
+                        ? RunTruncationStrategy.CreateLastMessagesStrategy(state.TruncationStrategyLastNMessages)
+                        : null
+             };
 
-            state.ThreadId = threadId;
-            state.RunId = run?.Id;
-            // state.LastMessageId = message.Id;
-            switch (run?.Status)
+            foreach (ThreadInitializationMessage message in input)
             {
-                case "requires_action":
-                    state.SubmitToolOutputs = true;
-                    return this._GeneratePlanFromTools(state, run.RequiredAction!);
-                case "completed":
-                    state.SubmitToolOutputs = false;
-                    return await this._GeneratePlanFromMessagesAsync(threadId, state.LastMessageId, run.Id, true, state, cancellationToken);
-                case "cancelled":
-                    return new Plan();
-                case "expired":
-                    return new Plan(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
-                default:
-                    throw new TeamsAIException($"Run failed {run?.Status}. ErrorCode: {run?.LastError?.Code}. ErrorMessage: {run?.LastError?.Message}");
+                runCreateParams.AdditionalMessages.Add(message);
+            }
+
+            foreach (KeyValuePair<string, ToolDefinition> tool in state.ToolDefinitions)
+            {
+                runCreateParams.ToolsOverride.Add(tool.Value);
+            }
+
+            ThreadRun? run;
+            string assistantId = !string.IsNullOrEmpty(state.AssistantId) ? state.AssistantId! : this._options.AssistantId;
+
+            if (state.Streaming && !state.DisableOutput)
+            {
+                run = await _CreateRunStream(turnContext, state, threadId,
+                    assistantId,
+                    runCreateParams, cancellationToken);
+
+                state.ThreadId = threadId;
+                state.RunId = run?.Id;
+            }
+            else
+            {
+                run = await _client.CreateRunAsync(threadId, assistantId, runCreateParams);
+
+                // Update state and wait for the run to complete
+                state.ThreadId = threadId;
+                state.RunId = run.Id;
+
+                run = await _WaitForRunAsync(threadId, run.Id, true, cancellationToken);
+            }
+
+            while (run?.Status == RunStatus.InProgress)
+            {
+                run = await _WaitForRunAsync(threadId, run.Id, true, cancellationToken);
+            }
+
+            if (run?.Status == RunStatus.RequiresAction)
+            {
+                if (run.RequiredActions == null)
+                {
+                    return new();
+                }
+
+                state.SubmitToolOutputs = true;
+
+                return _GeneratePlanFromTools(state, run.RequiredActions);
+            }
+            else if (run?.Status == RunStatus.Completed)
+            {
+                state.SubmitToolOutputs = false;
+                return await _GeneratePlanFromMessagesAsync(state.ThreadId!, state);
+            }
+            else if (run?.Status == RunStatus.Cancelled)
+            {
+                return new();
+            }
+            else if (run?.Status == RunStatus.Expired)
+            {
+                return new(new() { new PredictedDoCommand(AIConstants.TooManyStepsActionName) });
+            }
+            else
+            {
+                throw new TeamsAIException($"Run failed {run?.Status}. ErrorCode: {run?.LastError?.Code}. ErrorMessage: {run?.LastError?.Message}");
+            }
+        }
+
+        internal static AssistantClient _CreateClient(string apiKey, string? endpoint = null)
+        {
+            Verify.ParamNotNull(apiKey);
+
+            if (endpoint != null)
+            {
+                // Azure OpenAI
+                return new(apiKey, new()
+                {
+                    // Endpoint = new Uri(endpoint)
+                });
+            }
+            else
+            {
+                // OpenAI
+                return new AssistantClient(apiKey);
             }
         }
     }

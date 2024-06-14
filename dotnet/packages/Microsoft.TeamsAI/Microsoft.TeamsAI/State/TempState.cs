@@ -20,6 +20,8 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public const string InputKey = "input";
 
+        public const string AdditionalMessagesKey = "additionalMessages";
+
         /// <summary>
         /// Name of the output property.
         /// </summary>
@@ -52,6 +54,7 @@ namespace Microsoft.Teams.AI.State
             this[ActionOutputsKey] = new Dictionary<string, string>();
             this[AuthTokenKey] = new Dictionary<string, string>();
             this[DuplicateTokenExchangeKey] = false;
+            this["last_streamed_reply_id"] = string.Empty;
         }
 
         /// <summary>
@@ -71,6 +74,12 @@ namespace Microsoft.Teams.AI.State
             get => this.Get<string>(InputKey)!;
             set => this.Set(InputKey, value);
         }
+
+        /*   public IEnumerable<MessageCreateParams> AdditionalMessages
+           {
+               get => this.Get<IEnumerable<MessageCreateParams>?>(AdditionalMessagesKey) ?? [];
+               set => this.Set(AdditionalMessagesKey, value);
+           }*/
 
         // TODO: This is currently not used, should store AI prompt/function output here
         /// <summary>
@@ -107,6 +116,12 @@ namespace Microsoft.Teams.AI.State
         {
             get => this.Get<bool>(DuplicateTokenExchangeKey)!;
             set => this.Set(DuplicateTokenExchangeKey, value);
+        }
+
+        public string LastStreamedReplyId
+        {
+            get => this.Get<string>("last_streamed_reply_id") ?? string.Empty;
+            set => this.Set("last_streamed_reply_id", value);
         }
     }
 }

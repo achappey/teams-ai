@@ -1,5 +1,6 @@
-﻿using Microsoft.Teams.AI.AI.OpenAI.Models;
+﻿using Microsoft.Teams.AI.AI.Models;
 using Microsoft.Teams.AI.State;
+using OpenAI.Assistants;
 
 // Assistants API is currently in beta and is subject to change.
 #pragma warning disable IDE0130 // Namespace does not match folder structure
@@ -33,6 +34,11 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         bool SubmitToolOutputs { get; set; }
 
         /// <summary>
+        /// Get or set whether output is streamed.
+        /// </summary>
+        bool Streaming { get; set; }
+
+        /// <summary>
         /// Get or set the submit tool map.
         /// </summary>
         Dictionary<string, List<string>> SubmitToolMap { get; set; }
@@ -40,7 +46,11 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// <summary>
         /// Get or set the files.
         /// </summary>
-        List<string> Files { get; set; }
+     //   List<string> Files { get; set; }
+
+        List<Attachment> Attachments { get; set; }
+
+        List<string> Images { get; set; }
 
         /// <summary>
         /// Get or set the model.
@@ -53,15 +63,56 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         string? AssistantId { get; set; }
 
         /// <summary>
+        /// Get or set the assistant ID.
+        /// </summary>
+        string ToolChoice { get; set; }
+
+        /// <summary>
         /// Get or set the temperature.
         /// </summary>
-        double Temperature { get; set; }
+        double? Temperature { get; set; }
+
+        /// <summary>
+        /// Get or set the nucleus sampling.
+        /// </summary>
+        double? TopP { get; set; }
 
         /// <summary>
         /// Get or set the tools.
         /// </summary>
-        Dictionary<string, Tool> Tools { get; set; }
+        Dictionary<string, ToolDefinition> ToolDefinitions { get; set; }
 
+        /// <summary>
+        /// Get or set the truncation strategy.
+        /// </summary>
+        string TruncationStrategy { get; set; }
+
+        /// <summary>
+        /// Get or set the truncation strategy last n messages.
+        /// </summary>
+        int TruncationStrategyLastNMessages { get; set; }
+
+        bool DisableOutput { get; set; }
+
+        /// <summary>
+        /// Get or set the tools.
+        /// </summary>
+        int ChunkOverlapTokens { get; set; }
+
+        /// <summary>
+        /// Get or set the max chunk size tokens.
+        /// </summary>
+        int MaxChunkSizeTokens { get; set; }
+
+        /// <summary>
+        /// Get or set the max num results.
+        /// </summary>
+        int MaxNumResults { get; set; }
+
+        /// <summary>
+        /// Get or set the parallel tool calls.
+        /// </summary>
+        public bool ParallelToolCalls { get; set; }
     }
 
     /// <summary>
@@ -91,23 +142,33 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         }
 
         /// <summary>
-        /// Get or set the files.
-        /// Stored in ConversationState with key "conversation_files".
+        /// Get or set the attachments.
+        /// Stored in ConversationState with key "file_attachments".
         /// </summary>
-        public List<string> Files
+        public List<Attachment> Attachments
         {
-            get => this.Conversation?.Get<List<string>>("conversation_files") ?? new List<string>();
-            set => this.Conversation?.Set("conversation_files", value);
+            get => this.Temp?.Get<List<Attachment>>("file_attachments") ?? new List<Attachment>();
+            set => this.Temp?.Set("file_attachments", value);
+        }
+
+        /// <summary>
+        /// Get or set the images.
+        /// Stored in ConversationState with key "conversation_images".
+        /// </summary>
+        public List<string> Images
+        {
+            get => this.Temp?.Get<List<string>>("conversation_images") ?? new List<string>();
+            set => this.Temp?.Set("conversation_images", value);
         }
 
         /// <summary>
         /// Get or set the tools.
-        /// Stored in ConversationState with key "conversation_tools".
+        /// Stored in ConversationState with key "conversation_tooldefinitions".
         /// </summary>
-        public Dictionary<string, Tool> Tools
+        public Dictionary<string, ToolDefinition> ToolDefinitions
         {
-            get => this.Conversation?.Get<Dictionary<string, Tool>>("conversation_tools") ?? new Dictionary<string, Tool>();
-            set => this.Conversation?.Set("conversation_tools", value);
+            get => this.Temp?.Get<Dictionary<string, ToolDefinition>>("conversation_tooldefinitions") ?? new Dictionary<string, ToolDefinition>();
+            set => this.Temp?.Set("conversation_tooldefinitions", value);
         }
 
         /// <summary>
@@ -141,6 +202,16 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         }
 
         /// <summary>
+        /// Get or set the tool choice.
+        /// Stored in ConversationState with key "assistants_tool_choice".
+        /// </summary>
+        public string ToolChoice
+        {
+            get => this.Conversation?.Get<string?>("conversation_tool_choice") ?? string.Empty;
+            set => this.Conversation?.Set("conversation_tool_choice", value);
+        }
+
+        /// <summary>
         /// Get or set whether need to submit tool outputs.
         /// Stored in TempState with key "assistants_state_submit_tool_outputs".
         /// </summary>
@@ -148,6 +219,16 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         {
             get => this.Temp?.Get<bool>("assistants_state_submit_tool_outputs") ?? false;
             set => this.Temp?.Set("assistants_state_submit_tool_outputs", value);
+        }
+
+        /// <summary>
+        /// Get or set whether output is streamed.
+        /// Stored in TempState with key "assistants_streaming".
+        /// </summary>
+        public bool Streaming
+        {
+            get => this.User?.Get<bool?>("assistants_streaming") ?? true;
+            set => this.User?.Set("assistants_streaming", value);
         }
 
         /// <summary>
@@ -164,10 +245,86 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// Get or set the temperature.
         /// Stored in ConversationState with key "conversation_temperature".
         /// </summary>
-        public double Temperature
+        public double? Temperature
         {
-            get => this.User?.Get<double?>("conversation_temperature") ?? 0.3;
-            set => this.User?.Set("conversation_temperature", value);
+            get => this.Conversation?.Get<double?>("conversation_temperature");
+            set
+            {
+                if (value == null)
+                {
+                    // Handle null by removing the key or another appropriate action
+                    this.Conversation?.Remove("conversation_temperature");
+                }
+                else
+                {
+                    this.Conversation?.Set("conversation_temperature", value);
+                }
+            }
+
         }
+
+        /// <summary>
+        /// Get or set the nucleus sampling.
+        /// Stored in ConversationState with key "conversation_top_p".
+        /// </summary>
+        public double? TopP
+        {
+            get => this.Conversation?.Get<double?>("conversation_top_p");
+            set
+            {
+                if (value == null)
+                {
+                    this.Conversation?.Remove("conversation_top_p");
+                }
+                else
+                {
+                    this.Conversation?.Set("conversation_top_p", value);
+                }
+            }
+
+        }
+
+        public string TruncationStrategy
+        {
+            get => User?.Get<string?>("truncation_strategy") ?? "auto";
+            set => User?.Set("truncation_strategy", value);
+        }
+
+        public int TruncationStrategyLastNMessages
+        {
+            get => (int?)User?.Get<long?>("truncation_strategy_last_messages") ?? 50;
+            set => User?.Set("truncation_strategy_last_messages", (long?)value);
+        }
+
+        public int ChunkOverlapTokens
+        {
+            get => (int?)User?.Get<long?>("chunk_overlap_tokens") ?? 400;
+            set => User?.Set("chunk_overlap_tokens", (long?)value);
+        }
+
+        public int MaxChunkSizeTokens
+        {
+            get => (int?)User?.Get<long?>("max_chunk_size_tokens") ?? 800;
+            set => User?.Set("max_chunk_size_tokens", (long?)value);
+        }
+
+        public int MaxNumResults
+        {
+            get => (int?)User?.Get<long?>("max_num_results") ?? 5;
+            set => User?.Set("max_num_results", (long?)value);
+        }
+
+        public bool DisableOutput
+        {
+            get => Temp?.Get<bool?>("disable_output") ?? false;
+            set => Temp?.Set("disable_output", value);
+        }
+
+        public bool ParallelToolCalls
+        {
+            get => User?.Get<bool?>("parallel_tool_calls") ?? true;
+            set => User?.Set("parallel_tool_calls", value);
+        }
+
     }
 }

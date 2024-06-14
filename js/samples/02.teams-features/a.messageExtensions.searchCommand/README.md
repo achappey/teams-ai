@@ -6,11 +6,11 @@ This sample shows how to incorporate a basic Message Extension app into a Micros
 
 <!-- code_chunk_output -->
 
--   [Teams Search Command Message Extension](#teams-search-command-message-extension)
-    -   [Interacting with the message extension](#interacting-with-the-message-extension)
-    -   [Setting up the sample](#setting-up-the-sample)
-    -   [Testing the sample](#testing-the-sample)
-        -   [Using Teams Toolkit for Visual Studio Code](#using-teams-toolkit-for-visual-studio-code)
+- [Teams Search Command Message Extension](#teams-search-command-message-extension)
+  - [Interacting with the message extension](#interacting-with-the-message-extension)
+  - [Setting up the sample](#setting-up-the-sample)
+  - [Testing the sample](#testing-the-sample)
+    - [Using Teams Toolkit for Visual Studio Code](#using-teams-toolkit-for-visual-studio-code)
 
 <!-- /code_chunk_output -->
 
@@ -28,6 +28,9 @@ This sample shows how to incorporate a basic Message Extension app into a Micros
     ```bash
     git clone https://github.com/Microsoft/teams-ai.git
     ```
+
+> [!IMPORTANT]
+> To prevent issues when installing dependencies after cloning the repo, copy or move the sample directory to it's own location first.
 
 1. If you do not have `yarn` installed, and want to run local bits, install it globally
 
@@ -57,14 +60,15 @@ This sample shows how to incorporate a basic Message Extension app into a Micros
     npm start
     ```
 
-1. Duplicate the `sample.env` file in this folder. Rename the file to `.env`. Add your bot's credentials and any other related credentials to that file.
+1. Duplicate the `sample.env` file in this folder. Rename the file to `.env` and add your bot's credentials and any other credentials to that file. Alternatively, if you are using Teams Toolkit (see below), you can add these credentials to the `/env/.env.*.*` files.
 
 ## Testing the sample
 
-The easiest and fastest way to get up and running is with Teams Toolkit as your development guide. To use Teams Toolkit to automate setup and debugging, please [continue below](#using-teams-toolkit-for-visual-studio-code).
+The easiest and fastest way to get up and running is with Teams Toolkit as your development guide.
 
-Otherwise, if you only want to run the bot locally and build manually, please jump to the [BotFramework Emulator](../README.md#testing-in-botframework-emulator) section.
-For different ways to test a sample see: [Multiple ways to test](../README.md#multiple-ways-to-test)
+Otherwise, if want to learn about the other ways to test a sample, use Teams Toolkit or Teams Toolkit CLI, and more, please see our documentation on [different ways to run samples](https://github.com/microsoft/teams-ai/tree/main/getting-started/OTHER#different-ways-to-run-the-samples).
+
+To use Teams Toolkit, continue following the directions below.
 
 ### Using Teams Toolkit for Visual Studio Code
 

@@ -61,7 +61,7 @@ namespace Microsoft.Teams.AI.AI.Validators
         /// <inheritdoc />
         public async Task<Validation> ValidateResponseAsync(ITurnContext context, IMemory memory, ITokenizer tokenizer, PromptResponse response, int remainingAttempts, CancellationToken cancellationToken = default)
         {
-            if (response.Message?.FunctionCall == null && this._required == false)
+            if (response.Message?.FunctionCall == null && !this._required)
             {
                 return await Task.FromResult(new Validation()
                 {

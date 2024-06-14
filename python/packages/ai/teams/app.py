@@ -21,7 +21,7 @@ from typing import (
 
 from aiohttp.web import Request, Response
 from botbuilder.core import Bot, TurnContext
-from botbuilder.schema import ActivityTypes
+from botbuilder.schema import Activity, ActivityTypes, InvokeResponse
 from botbuilder.schema.teams import (
     FileConsentCardResponse,
     O365ConnectorCardActionQuery,
@@ -512,6 +512,49 @@ class Application(Bot, Generic[StateT]):
 
         return __call__
 
+    def handoff(
+        self,
+    ) -> Callable[
+        [Callable[[TurnContext, StateT, str], Awaitable[None]]],
+        Callable[[TurnContext, StateT, str], Awaitable[None]],
+    ]:
+        """
+        Registers a handler to handoff conversations from one copilot to another.
+         ```python
+        # Use this method as a decorator
+        @app.handoff
+        async def on_handoff(
+            context: TurnContext, state: TurnState, continuation: str
+        ):
+            print(query)
+        # Pass a function to this method
+        app.handoff()(on_handoff)
+        ```
+        """
+
+        def __selector__(context: TurnContext) -> bool:
+            return (
+                context.activity.type == ActivityTypes.invoke
+                and context.activity.name == "handoff/action"
+            )
+
+        def __call__(
+            func: Callable[[TurnContext, StateT, str], Awaitable[None]]
+        ) -> Callable[[TurnContext, StateT, str], Awaitable[None]]:
+            async def __handler__(context: TurnContext, state: StateT):
+                if not context.activity.value:
+                    return False
+                await func(context, state, context.activity.value["continuation"])
+                await context.send_activity(
+                    Activity(type=ActivityTypes.invoke_response, value=InvokeResponse(status=200))
+                )
+                return True
+
+            self._routes.append(Route[StateT](__selector__, __handler__, True))
+            return func
+
+        return __call__
+
     def before_turn(self, func: RouteHandler[StateT]) -> RouteHandler[StateT]:
         """
         Registers a new event listener that will be executed before turns.
@@ -627,6 +670,17 @@ class Application(Bot, Generic[StateT]):
                 if not is_ok:
                     await state.save(context, self._options.storage)
                     return
+
+            # download input files
+            if (
+                self._options.file_downloaders is not None
+                and len(self._options.file_downloaders) > 0
+            ):
+                input_files = state.temp.input_files if state.temp.input_files is not None else []
+                for file_downloader in self._options.file_downloaders:
+                    files = await file_downloader.download_files(context)
+                    input_files.append(files)
+                state.temp.input_files = input_files
 
             # run activity handlers
             is_ok, matches = await self._on_activity(context, state)

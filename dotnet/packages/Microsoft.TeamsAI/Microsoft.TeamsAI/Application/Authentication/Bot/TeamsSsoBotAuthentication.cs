@@ -27,11 +27,14 @@ namespace Microsoft.Teams.AI
         /// <param name="storage">The storage to save turn state</param>
         public TeamsSsoBotAuthentication(Application<TState> app, string name, TeamsSsoSettings settings, IStorage? storage = null) : base(app, name, storage)
         {
-            this._tokenExchangeIdRegex = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-" + name);
-            this._prompt = new TeamsSsoPrompt("TeamsSsoPrompt", name, settings);
+            _tokenExchangeIdRegex = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}-" + name);
+            _prompt = new TeamsSsoPrompt("TeamsSsoPrompt", name, settings);
 
             // Do not save state for duplicate token exchange events to avoid eTag conflicts
-            app.OnAfterTurn((context, state, cancellationToken) => Task.FromResult(state.Temp.DuplicateTokenExchange != true));
+            app.OnAfterTurn((context, state, cancellationToken) =>
+            {
+                return Task.FromResult(!state.Temp.DuplicateTokenExchange);
+            });
         }
 
         /// <summary>
@@ -44,7 +47,7 @@ namespace Microsoft.Teams.AI
         /// <returns>Dialog turn result that contains token if sign in success</returns>
         public override async Task<DialogTurnResult> ContinueDialog(ITurnContext context, TState state, string dialogStateProperty, CancellationToken cancellationToken = default)
         {
-            DialogContext dialogContext = await this.CreateSsoDialogContext(context, state, dialogStateProperty);
+            DialogContext dialogContext = await CreateSsoDialogContext(context, state, dialogStateProperty);
             return await dialogContext.ContinueDialogAsync();
         }
 
@@ -58,7 +61,7 @@ namespace Microsoft.Teams.AI
         /// <returns>Dialog turn result that contains token if sign in success</returns>
         public override async Task<DialogTurnResult> RunDialog(ITurnContext context, TState state, string dialogStateProperty, CancellationToken cancellationToken = default)
         {
-            DialogContext dialogContext = await this.CreateSsoDialogContext(context, state, dialogStateProperty);
+            DialogContext dialogContext = await CreateSsoDialogContext(context, state, dialogStateProperty);
             DialogTurnResult result = await dialogContext.ContinueDialogAsync();
             if (result.Status == DialogTurnStatus.Empty)
             {
@@ -73,7 +76,7 @@ namespace Microsoft.Teams.AI
         /// <param name="context">The turn context</param>
         /// <param name="cancellationToken">The cancellation token</param>
         /// <returns>True if the activity should be handled by current authentication hanlder. Otherwise, false.</returns>
-        protected override async Task<bool> TokenExchangeRouteSelector(ITurnContext context, CancellationToken cancellationToken)
+        internal override async Task<bool> TokenExchangeRouteSelector(ITurnContext context, CancellationToken cancellationToken)
         {
             JObject? value = context.Activity.Value as JObject;
             JToken? id = value?["id"];
@@ -91,7 +94,6 @@ namespace Microsoft.Teams.AI
             dialogSet.Add(this._prompt);
             dialogSet.Add(new WaterfallDialog(SSO_DIALOG_ID, new WaterfallStep[]
             {
-                async (step, cancellationToken) => await step.BeginDialogAsync(this._prompt.Id),
                 async (step, cancellationToken) =>
                 {
                     return await step.BeginDialogAsync(this._prompt.Id);
@@ -112,7 +114,7 @@ namespace Microsoft.Teams.AI
 
         private async Task<bool> ShouldDedup(ITurnContext context)
         {
-            string key = this.GetStorageKey(context);
+            string key = GetStorageKey(context);
             string id = (context.Activity.Value as JObject)?.Value<string>("id")!; // The id exists if GetStorageKey success
             IStoreItem storeItem = new TokenStoreItem(id);
             Dictionary<string, object> storesItems = new()
@@ -152,9 +154,11 @@ namespace Microsoft.Teams.AI
             }
             JObject value = JObject.FromObject(activity.Value);
             JToken? id = value["id"];
-            return id == null
-                ? throw new AuthException("Invalid signin/tokenExchange. Missing activity.value.id.")
-                : $"{channelId}/{conversationId}/{id}";
+            if (id == null)
+            {
+                throw new AuthException("Invalid signin/tokenExchange. Missing activity.value.id.");
+            }
+            return $"{channelId}/{conversationId}/{id}";
         }
     }
 
@@ -164,7 +168,7 @@ namespace Microsoft.Teams.AI
 
         public TokenStoreItem(string etag)
         {
-            this.ETag = etag;
+            ETag = etag;
         }
     }
 }

@@ -21,21 +21,21 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <param name="options">Options to configure the moderator.</param>
         public AzureContentSafetyModerator(AzureContentSafetyModeratorOptions options)
         {
-            this._options = options;
-            this._client = new ContentSafetyClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey));
+            _options = options;
+            _client = new ContentSafetyClient(new Uri(options.Endpoint), new AzureKeyCredential(options.ApiKey));
         }
 
         /// <inheritdoc />
         public async Task<Plan?> ReviewInputAsync(ITurnContext turnContext, TState turnState, CancellationToken cancellationToken = default)
         {
-            switch (this._options.Moderate)
+            switch (_options.Moderate)
             {
                 case ModerationType.Input:
                 case ModerationType.Both:
                 {
                     string input = turnState.Temp?.Input ?? turnContext.Activity.Text;
 
-                    return await this._HandleTextModeration(input, true);
+                    return await _HandleTextModeration(input, true);
                 }
                 default:
                     break;
@@ -47,7 +47,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
         /// <inheritdoc />
         public async Task<Plan> ReviewOutputAsync(ITurnContext turnContext, TState turnState, Plan plan, CancellationToken cancellationToken = default)
         {
-            switch (this._options.Moderate)
+            switch (_options.Moderate)
             {
                 case ModerationType.Output:
                 case ModerationType.Both:
@@ -56,10 +56,10 @@ namespace Microsoft.Teams.AI.AI.Moderator
                     {
                         if (command is PredictedSayCommand sayCommand)
                         {
-                            string output = sayCommand.Response;
+                            string output = sayCommand.Response.Content;
 
                             // If plan is flagged it will be replaced
-                            Plan? newPlan = await this._HandleTextModeration(output, false);
+                            Plan? newPlan = await _HandleTextModeration(output, false);
 
                             return newPlan ?? plan;
                         }
@@ -77,16 +77,16 @@ namespace Microsoft.Teams.AI.AI.Moderator
         private async Task<Plan?> _HandleTextModeration(string text, bool isModelInput)
         {
             AnalyzeTextOptions analyzeTextOptions = new(text);
-            if (this._options.Categories != null)
+            if (_options.Categories != null)
             {
-                foreach (AzureContentSafetyTextCategory category in this._options.Categories)
+                foreach (AzureContentSafetyTextCategory category in _options.Categories)
                 {
                     analyzeTextOptions.Categories.Add(category.ToTextCategory());
                 }
             }
-            if (this._options.BlocklistNames != null)
+            if (_options.BlocklistNames != null)
             {
-                foreach (string blocklistName in this._options.BlocklistNames)
+                foreach (string blocklistName in _options.BlocklistNames)
                 {
                     analyzeTextOptions.BlocklistNames.Add(blocklistName);
                 }
@@ -94,13 +94,13 @@ namespace Microsoft.Teams.AI.AI.Moderator
 
             try
             {
-                Response<AnalyzeTextResult> response = await this._client.AnalyzeTextAsync(analyzeTextOptions);
+                Response<AnalyzeTextResult> response = await _client.AnalyzeTextAsync(analyzeTextOptions);
 
                 bool flagged = response.Value.BlocklistsMatchResults.Count > 0
-                || this._ShouldBeFlagged(response.Value.HateResult)
-                || this._ShouldBeFlagged(response.Value.SelfHarmResult)
-                || this._ShouldBeFlagged(response.Value.SexualResult)
-                || this._ShouldBeFlagged(response.Value.ViolenceResult);
+                || _ShouldBeFlagged(response.Value.HateResult)
+                || _ShouldBeFlagged(response.Value.SelfHarmResult)
+                || _ShouldBeFlagged(response.Value.SexualResult)
+                || _ShouldBeFlagged(response.Value.ViolenceResult);
                 if (flagged)
                 {
                     string actionName = isModelInput ? AIConstants.FlaggedInputActionName : AIConstants.FlaggedOutputActionName;
@@ -112,7 +112,7 @@ namespace Microsoft.Teams.AI.AI.Moderator
                             {
                                 new PredictedDoCommand(actionName, new Dictionary<string, object?>
                                 {
-                                    { "Result", this.BuildModerationResult(response.Value) }
+                                    { "Result", BuildModerationResult(response.Value) }
                                 })
                             }
                     };
@@ -140,15 +140,15 @@ namespace Microsoft.Teams.AI.AI.Moderator
 
         private bool _ShouldBeFlagged(TextAnalyzeSeverityResult result)
         {
-            return result != null && result.Severity >= this._options.SeverityLevel;
+            return result != null && result.Severity >= _options.SeverityLevel;
         }
 
         private ModerationResult BuildModerationResult(AnalyzeTextResult result)
         {
-            bool hate = this._ShouldBeFlagged(result.HateResult);
-            bool selfHarm = this._ShouldBeFlagged(result.SelfHarmResult);
-            bool sexual = this._ShouldBeFlagged(result.SexualResult);
-            bool violence = this._ShouldBeFlagged(result.ViolenceResult);
+            bool hate = _ShouldBeFlagged(result.HateResult);
+            bool selfHarm = _ShouldBeFlagged(result.SelfHarmResult);
+            bool sexual = _ShouldBeFlagged(result.SexualResult);
+            bool violence = _ShouldBeFlagged(result.ViolenceResult);
 
             return new()
             {

@@ -8,15 +8,18 @@ using Microsoft.Bot.Builder;
 using Microsoft.Extensions.Logging.Abstractions;
 using AdaptiveCards;
 using Microsoft.Bot.Schema;
+using Microsoft.Teams.AI.AI.Models;
 
 namespace Microsoft.Teams.AI.AI.Action
 {
     internal class DefaultActions<TState> where TState : TurnState
     {
         private readonly ILogger _logger;
+        private readonly bool _enableFeedbackLoop;
 
-        public DefaultActions(ILoggerFactory? loggerFactory = null)
+        public DefaultActions(bool enableFeedbackLoop = false, ILoggerFactory? loggerFactory = null)
         {
+            _enableFeedbackLoop = enableFeedbackLoop;
             this._logger = loggerFactory is null ? NullLogger.Instance : loggerFactory.CreateLogger(typeof(DefaultActions<TState>));
         }
 
@@ -81,14 +84,71 @@ namespace Microsoft.Teams.AI.AI.Action
             Verify.ParamNotNull(command);
             Verify.ParamNotNull(command.Response);
 
-            if (turnContext.Activity.ChannelId == Channels.Msteams)
+            if (command.Response.Content == null || command.Response.Content == string.Empty)
             {
-                await turnContext.SendActivityAsync(command.Response.Replace("\n", "<br>"), null, null, cancellationToken);
+                return "";
             }
-            else
+
+            string content = command.Response.Content;
+
+            bool isTeamsChannel = turnContext.Activity.ChannelId == Channels.Msteams;
+
+            if (isTeamsChannel)
             {
-                await turnContext.SendActivityAsync(command.Response, null, null, cancellationToken);
-            };
+                content.Replace("\n", "<br>");
+            }
+
+            // If the response from the AI includes citations, those citations will be parsed and added to the SAY command.
+            List<ClientCitation> citations = new();
+
+            if (command.Response.Context != null && command.Response.Context.Citations.Count > 0)
+            {
+                int i = 0;
+                foreach (Citation citation in command.Response.Context.Citations)
+                {
+                    string abs = CitationUtils.Snippet(citation.Content, 500);
+                    if (isTeamsChannel)
+                    {
+                        content.Replace("\n", "<br>");
+                    };
+
+                    citations.Add(new ClientCitation()
+                    {
+                        Position = $"{i + 1}",
+                        Appearance = new ClientCitationAppearance()
+                        {
+                            Name = citation.Title,
+                            Abstract = abs
+                        }
+                    });
+                    i++;
+                }
+            }
+
+            // If there are citations, modify the content so that the sources are numbers instead of [doc1], [doc2], etc.
+            string contentText = citations.Count == 0 ? content : CitationUtils.FormatCitationsResponse(content);
+
+            // If there are citations, filter out the citations unused in content.
+            List<ClientCitation>? referencedCitations = citations.Count > 0 ? CitationUtils.GetUsedCitations(contentText, citations) : new List<ClientCitation>();
+
+            object? channelData = isTeamsChannel ? new
+            {
+                feedbackLoopEnabled = _enableFeedbackLoop
+            } : null;
+
+            AIEntity entity = new();
+            if (referencedCitations != null)
+            {
+                entity.Citation = referencedCitations;
+            }
+
+            await turnContext.SendActivityAsync(new Activity()
+            {
+                Type = ActivityTypes.Message,
+                Text = contentText,
+                ChannelData = channelData,
+                Entities = new List<Entity>() { entity }
+            }, cancellationToken);
 
             return string.Empty;
         }
@@ -106,109 +166,6 @@ namespace Microsoft.Teams.AI.AI.Action
             }
         }
 
-        [Action("file_citation", isDefault: true)]
-        public async Task<string> DisplayCitation([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
-        {
-            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
-
-            card.Body.Add(new AdaptiveTextBlock
-            {
-                Text = parameters["text"].ToString(),
-                Weight = AdaptiveTextWeight.Bolder,
-                Size = AdaptiveTextSize.Medium
-            });
-
-            AdaptiveFactSet factSet = new();
-
-            factSet.Facts.Add(new AdaptiveFact("Filename", parameters["filename"].ToString()));
-            factSet.Facts.Add(new AdaptiveFact("Ranges", parameters["ranges"].ToString()));
-
-            card.Body.Add(factSet);
-
-            string quote = parameters["quote"].ToString();
-
-            if (!string.IsNullOrEmpty(quote))
-            {
-                card.Body.Add(new AdaptiveTextBlock
-                {
-                    Text = $"Quote",
-                    Size = AdaptiveTextSize.Default,
-                    Weight = AdaptiveTextWeight.Bolder
-                });
-
-                card.Body.Add(new AdaptiveTextBlock
-                {
-                    Text = parameters["quote"].ToString(),
-                    Wrap = true
-                });
-            }
-
-            Attachment attachment = new()
-            {
-                ContentType = AdaptiveCard.ContentType,
-                Content = card
-            };
-
-            IMessageActivity reply = MessageFactory.Attachment(attachment);
-            await turnContext.SendActivityAsync(reply);
-
-            return string.Empty;
-        }
-
-        [Action("file_path", isDefault: true)]
-        public async Task<string> DownloadFile([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
-        {
-            // Create a new Adaptive Card
-            AdaptiveCard card = new(new AdaptiveSchemaVersion(1, 3));
-
-            // Add a text block to the card
-            card.Body.Add(new AdaptiveTextBlock
-            {
-                Text = parameters["filename"].ToString(),
-                Weight = AdaptiveTextWeight.Bolder,
-                Size = AdaptiveTextSize.Medium
-            });
-
-            // Create a fact set and add it to the card
-            AdaptiveFactSet factSet = new();
-            factSet.Facts.Add(new AdaptiveFact("Start index", parameters["start_index"].ToString()));
-            factSet.Facts.Add(new AdaptiveFact("End index", parameters["end_index"].ToString()));
-            card.Body.Add(factSet);
-
-            IMessageActivity reply = MessageFactory.Attachment(new Attachment()
-            {
-                ContentType = "application/vnd.microsoft.card.adaptive",
-                Content = card
-            });
-
-            // Check if file content is not null
-            if (parameters["fileContent"] is byte[] fileContent)
-            {
-                // Convert the byte array to a stream
-                string base64File = Convert.ToBase64String(fileContent);
-
-                // Assuming 'filename' is the name of the file to download
-                string filename = parameters["filename"].ToString();
-                string contentUrl = $"data:application/octet-stream;base64,{base64File}";
-
-                // Create an attachment from the stream
-                Attachment fileAttachment = new()
-                {
-                    ContentType = "application/octet-stream",
-                    ContentUrl = contentUrl,
-                    Name = filename
-                };
-
-                // Attach the file to the message activity
-                reply.Attachments.Add(fileAttachment);
-            }
-
-            // Send the message activity with the Adaptive Card and the file attachment
-            await turnContext.SendActivityAsync(reply);
-
-            return string.Empty;
-        }
-
         [Action("image_file", isDefault: true)]
         public async Task<string> DisplayImageFile([ActionTurnContext] ITurnContext turnContext, [ActionParameters] Dictionary<string, object> parameters)
         {
@@ -220,7 +177,7 @@ namespace Microsoft.Teams.AI.AI.Action
 
                 // Create a new message with the image
                 IMessageActivity imageMessage = MessageFactory.Text(null);
-                imageMessage.Attachments = new List<Attachment>
+                imageMessage.Attachments = new List<Bot.Schema.Attachment>
                 {
                     new() {
                         ContentType = "image/png",
