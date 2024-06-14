@@ -1,4 +1,4 @@
-﻿using Microsoft.Bot.Builder;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Schema;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -13,10 +13,12 @@ using OpenAI.Files;
 using OpenAI.VectorStores;
 using System.ClientModel;
 using System.Text;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 // Assistants API is currently in beta and is subject to change.
 #pragma warning disable IDE0130 // Namespace does not match folder structure
+[assembly: InternalsVisibleTo("Microsoft.Teams.AI.Tests")]
 namespace Microsoft.Teams.AI.AI.Planners.Experimental
 #pragma warning restore IDE0130 // Namespace does not match folder structure
 {
@@ -670,5 +672,6 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
                 return new AssistantClient(apiKey);
             }
         }
+
     }
 }

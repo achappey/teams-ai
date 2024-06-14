@@ -40,7 +40,7 @@ namespace Microsoft.Teams.AI.AI
             this._actions = new ActionCollection<TState>();
 
             // Import default actions
-            this.ImportActions(new DefaultActions<TState>(options.EnableFeedbackLoop, loggerFactory));
+            ImportActions(new DefaultActions<TState>(options.EnableFeedbackLoop, loggerFactory));
         }
 
         /// <summary>
@@ -319,6 +319,7 @@ namespace Microsoft.Teams.AI.AI
 
                 // Copy the actions output to the input
                 turnState.Temp!.Input = output;
+                turnState.Temp.InputFiles = new();
             }
 
             // Check for looping

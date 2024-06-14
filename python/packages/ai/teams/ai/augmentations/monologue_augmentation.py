@@ -123,8 +123,8 @@ class MonologueAugmentation(Augmentation[InnerMonologue]):
     _section: ActionAugmentationSection
     _monologue_validator = JSONResponseValidator(
         InnerMonologueSchema,
-        """No valid JSON objects were found in the response. Return a 
-        valid JSON object with your thoughts and the next 
+        """No valid JSON objects were found in the response. Return a
+        valid JSON object with your thoughts and the next
         action to perform.""",
     )
     _action_validator: ActionResponseValidator
@@ -143,11 +143,22 @@ class MonologueAugmentation(Augmentation[InnerMonologue]):
             call_to_action="\n".join(
                 [
                     "Return a JSON object with your thoughts and the next action to perform.",
-                    "Only respond with the JSON format below and base your plan on the actions above.",
-                    "If you're not sure what to do, you can always say something by returning a SAY action.",
+                    (
+                        "Only respond with the JSON format below and base your plan on the actions"
+                        " above."
+                    ),
+                    (
+                        "If you're not sure what to do, you can always say something by returning a"
+                        " SAY action."
+                    ),
                     "If you're told your JSON response has errors, do your best to fix them.",
                     "Response Format:",
-                    '{"thoughts":{"thought":"<your current thought>","reasoning":"<self reflect on why you made this decision>","plan":"- short bulleted\\n- list that conveys\\n- long-term plan"},"action":{"name":"<action name>","parameters":{"<name>":"<value>"}}}',
+                    (
+                        '{"thoughts":{"thought":"<your current thought>","reasoning":"<self reflect'
+                        ' on why you made this decision>","plan":"- short bulleted\\n- list that'
+                        ' conveys\\n- long-term plan"},"action":{"name":"<action'
+                        ' name>","parameters":{"<name>":"<value>"}}}'
+                    ),
                 ]
             ),
         )
@@ -247,8 +258,18 @@ class MonologueAugmentation(Augmentation[InnerMonologue]):
 
             if monologue.action.name == "SAY":
                 params = monologue.action.parameters
-                response_val = cast(str, params.get("text")) if params else ""
-                command = PredictedSayCommand(response=response_val)
+                response_val = PredictedSayCommand(
+                    response=(
+                        Message(
+                            role="assistant",
+                            context=response.message.context,
+                            content=params.get("text"),
+                        )
+                        if params
+                        else None
+                    )
+                )
+                command = response_val
             else:
                 command = PredictedDoCommand(
                     action=monologue.action.name,

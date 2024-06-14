@@ -30,6 +30,7 @@ import { TurnState } from './TurnState';
 import { InputFileDownloader } from './InputFileDownloader';
 import {
     deleteUserInSignInFlow,
+    setSettingNameInContextActivityValue,
     setTokenInState,
     setUserInSignInFlow,
     userInSignInFlow
@@ -137,6 +138,27 @@ export interface ApplicationOptions<TState extends TurnState> {
      * Optional. Array of input file download plugins to use.
      */
     fileDownloaders?: InputFileDownloader<TState>[];
+}
+
+/**
+ * Data returned when the thumbsup or thumbsdown button is clicked and response sent when enable_feedback_loop is set to true in the AI Module.
+ */
+export interface FeedbackLoopData {
+    actionName: 'feedback';
+    actionValue: {
+        /**
+         * 'like' or 'dislike'
+         */
+        reaction: string;
+        /**
+         * The response the user provides when prompted with "What did you like/dislike?" after pressing one of the feedback buttons.
+         */
+        feedback: string;
+    };
+    /**
+     * The activity ID that the feedback was provided on.
+     */
+    replyToId: string;
 }
 
 /**
@@ -628,7 +650,37 @@ export class Application<TState extends TurnState = TurnState> {
             await handler(context, state, context.activity.value!.continuation);
             await context.sendActivity({
                 type: ActivityTypes.InvokeResponse,
-                value: { status: 200 },
+                value: { status: 200 }
+            });
+        };
+        this.addRoute(selector, handlerWrapper, true);
+        return this;
+    }
+    /**
+     * Registers a handler for feedbackloop events when a user clicks the thumbsup or thumbsdown button on a response from AI. enable_feedback_loop must be set to true in the AI Module.
+     * @param {(context: TurnContext, state: TState, feedbackLoopData: FeedbackLoopData) => Promise<void>} handler - Function to call when the route is triggered
+     * @returns {this} The application instance for chaining purposes.
+     */
+    public feedbackLoop(
+        handler: (context: TurnContext, state: TState, feedbackLoopData: FeedbackLoopData) => Promise<void>
+    ): this {
+        const selector = (context: TurnContext): Promise<boolean> => {
+            return Promise.resolve(
+                context.activity.type === ActivityTypes.Invoke &&
+                    context.activity.name === 'message/submitAction' &&
+                    context.activity.value.actionName === 'feedback'
+            );
+        };
+
+        const handlerWrapper = async (context: TurnContext, state: TState) => {
+            const feedback: FeedbackLoopData = {
+                ...context.activity.value,
+                replyToId: context.activity.replyToId
+            };
+            await handler(context, state, feedback);
+            await context.sendActivity({
+                type: ActivityTypes.InvokeResponse,
+                value: { status: 200 }
             });
         };
         this.addRoute(selector, handlerWrapper, true);
@@ -673,6 +725,9 @@ export class Application<TState extends TurnState = TurnState> {
                         // user was not in a sign in flow, but auto-sign in is enabled
                         settingName = this.authentication.default;
                     }
+
+                    // Sets the setting name in the context object. It is used in `signIn/verifyState` & `signIn/tokenExchange` route selectors.
+                    setSettingNameInContextActivityValue(context, settingName);
 
                     const response = await this._authentication.signUserIn(context, state, settingName);
 

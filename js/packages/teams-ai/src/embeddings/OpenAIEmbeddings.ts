@@ -75,11 +75,8 @@ export interface OpenAIEmbeddingsOptions extends BaseOpenAIEmbeddingsOptions {
  * Options for configuring an embeddings object that calls an `OpenAI` compliant endpoint.
  * @remarks
  * The endpoint should comply with the OpenAPI spec for OpenAI's API:
- *
  * https://github.com/openai/openai-openapi
- *
  * And an example of a compliant endpoint is LLaMA.cpp's reference server:
- *
  * https://github.com/ggerganov/llama.cpp/blob/master/examples/server/README.md
  */
 export interface OpenAILikeEmbeddingsOptions extends BaseOpenAIEmbeddingsOptions {
@@ -158,12 +155,6 @@ export class OpenAIEmbeddings implements EmbeddingsModel {
             let endpoint = this.options.azureEndpoint.trim();
             if (endpoint.endsWith('/')) {
                 endpoint = endpoint.substring(0, endpoint.length - 1);
-            }
-
-            if (!endpoint.toLowerCase().startsWith('https://')) {
-                throw new Error(
-                    `Client created with an invalid endpoint of '${endpoint}'. The endpoint must be a valid HTTPS url.`
-                );
             }
 
             this.options.azureEndpoint = endpoint;

@@ -6,7 +6,6 @@ using Microsoft.Bot.Connector;
 using Microsoft.Extensions.Logging;
 using Microsoft.Bot.Builder;
 using Microsoft.Extensions.Logging.Abstractions;
-using AdaptiveCards;
 using Microsoft.Bot.Schema;
 using Microsoft.Teams.AI.AI.Models;
 
@@ -89,7 +88,7 @@ namespace Microsoft.Teams.AI.AI.Action
                 return "";
             }
 
-            string content = command.Response.Content;
+            string content = command.Response.GetContent<string>();
 
             bool isTeamsChannel = turnContext.Activity.ChannelId == Channels.Msteams;
 
@@ -149,6 +148,32 @@ namespace Microsoft.Teams.AI.AI.Action
                 ChannelData = channelData,
                 Entities = new List<Entity>() { entity }
             }, cancellationToken);
+
+
+            if (command.Response.Context != null && command.Response.Context.Citations.Count > 0)
+            {
+                int i = 0;
+                foreach (Citation citation in command.Response.Context.Citations)
+                {
+                    string abs = CitationUtils.Snippet(citation.Content, 500);
+                    if (isTeamsChannel)
+                    {
+                        content.Replace("\n", "<br>");
+                    };
+
+                    citations.Add(new ClientCitation()
+                    {
+                        Position = $"{i + 1}",
+                        Appearance = new ClientCitationAppearance()
+                        {
+                            Name = citation.Title,
+                            Abstract = abs
+                        }
+                    });
+                    i++;
+                }
+            }
+
 
             return string.Empty;
         }

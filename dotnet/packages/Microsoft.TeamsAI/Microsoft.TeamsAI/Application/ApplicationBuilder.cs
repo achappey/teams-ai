@@ -48,6 +48,12 @@ namespace Microsoft.Teams.AI
             return this;
         }
 
+        public ApplicationBuilder<TState> WithFileDownloaders(IList<Application.IInputFileDownloader<TState>> fileDownloaders)
+        {
+            this.Options.FileDownloaders = fileDownloaders;
+            return this;
+        }
+
         /// <summary>
         /// Configures the AI system to use for processing incoming messages.
         /// </summary>

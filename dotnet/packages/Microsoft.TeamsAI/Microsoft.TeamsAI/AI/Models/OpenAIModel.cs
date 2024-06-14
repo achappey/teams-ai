@@ -3,7 +3,6 @@ using Azure.AI.OpenAI;
 using Azure.Core;
 using Azure.Core.Pipeline;
 using Microsoft.Bot.Builder;
-using Microsoft.Extensions.Azure;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Teams.AI.AI.Prompts;
@@ -30,6 +29,11 @@ namespace Microsoft.Teams.AI.AI.Models
 
         private readonly OpenAIClient _openAIClient;
         private readonly string _deploymentName;
+        private readonly static JsonSerializerOptions _serializerOptions = new()
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
 
         private static readonly string _userAgent = "AlphaWave";
 
@@ -86,10 +90,6 @@ namespace Microsoft.Teams.AI.AI.Models
             Verify.ParamNotNull(options.AzureApiKey, "AzureOpenAIModelOptions.AzureApiKey");
             Verify.ParamNotNull(options.AzureDefaultDeployment, "AzureOpenAIModelOptions.AzureDefaultDeployment");
             Verify.ParamNotNull(options.AzureEndpoint, "AzureOpenAIModelOptions.AzureEndpoint");
-            if (!options.AzureEndpoint.StartsWith("https://"))
-            {
-                throw new ArgumentException($"Model created with an invalid endpoint of `{options.AzureEndpoint}`. The endpoint must be a valid HTTPS url.");
-            }
             string apiVersion = options.AzureApiVersion ?? "2024-02-15-preview";
             ServiceVersion? serviceVersion = ConvertStringToServiceVersion(apiVersion);
             if (serviceVersion == null)
@@ -127,7 +127,9 @@ namespace Microsoft.Teams.AI.AI.Models
         {
             DateTime startTime = DateTime.UtcNow;
             int maxInputTokens = promptTemplate.Configuration.Completion.MaxInputTokens;
-            if (this._options.CompletionType == CompletionType.Text)
+
+
+            if (_options.CompletionType == CompletionType.Text)
             {
                 // Render prompt
                 RenderedPromptSection<string> prompt = await promptTemplate.Prompt.RenderAsTextAsync(turnContext, memory, promptFunctions, tokenizer, maxInputTokens, cancellationToken);
@@ -223,7 +225,16 @@ namespace Microsoft.Teams.AI.AI.Models
                 {
                     // TODO: Colorize
                     _logger.LogTrace("CHAT PROMPT:");
-                    _logger.LogTrace(JsonSerializer.Serialize(prompt.Output));
+                    _logger.LogTrace(JsonSerializer.Serialize(prompt.Output, _serializerOptions));
+                }
+
+                // Get input message
+                // - we're doing this here because the input message can be complex and include images.
+                ChatMessage? input = null;
+                int last = prompt.Output.Count - 1;
+                if (last >= 0 && prompt.Output[last].Role == "user")
+                {
+                    input = prompt.Output[last];
                 }
 
                 // Call chat completion API
@@ -249,6 +260,7 @@ namespace Microsoft.Teams.AI.AI.Models
                     rawResponse = chatCompletionsResponse.GetRawResponse();
                     promptResponse.Status = PromptResponseStatus.Success;
                     promptResponse.Message = chatCompletionsResponse.Value.Choices[0].Message.ToChatMessage();
+                    promptResponse.Input = input;
                 }
                 catch (RequestFailedException e)
                 {

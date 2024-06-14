@@ -1,4 +1,6 @@
 ﻿
+using Microsoft.Teams.AI.Application;
+
 namespace Microsoft.Teams.AI.State
 {
     /// <summary>
@@ -37,11 +39,15 @@ namespace Microsoft.Teams.AI.State
         /// </summary>
         public const string AuthTokenKey = "authTokens";
 
-
         /// <summary>
         /// Name of the duplicate token exchange property
         /// </summary>
         public const string DuplicateTokenExchangeKey = "duplicateTokenExchange";
+
+        /// <summary>
+        /// Name of the input files key
+        /// </summary>
+        public const string InputFilesKey = "inputFiles";
 
         /// <summary>
         /// Creates a new instance of the <see cref="TempState"/> class.
@@ -55,6 +61,7 @@ namespace Microsoft.Teams.AI.State
             this[AuthTokenKey] = new Dictionary<string, string>();
             this[DuplicateTokenExchangeKey] = false;
             this["last_streamed_reply_id"] = string.Empty;
+            this[InputFilesKey] = new List<InputFile>();
         }
 
         /// <summary>
@@ -122,6 +129,15 @@ namespace Microsoft.Teams.AI.State
         {
             get => this.Get<string>("last_streamed_reply_id") ?? string.Empty;
             set => this.Set("last_streamed_reply_id", value);
+        }
+
+        /// <summary>
+        /// Downloaded files passed by the user to the AI library
+        /// </summary>
+        public List<InputFile> InputFiles
+        {
+            get => Get<List<InputFile>>(InputFilesKey)!;
+            set => Set(InputFilesKey, value);
         }
     }
 }
