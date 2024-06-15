@@ -43,14 +43,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         /// </summary>
         Dictionary<string, List<string>> SubmitToolMap { get; set; }
 
-        /// <summary>
-        /// Get or set the files.
-        /// </summary>
-     //   List<string> Files { get; set; }
-
-        List<Attachment> Attachments { get; set; }
-
-        List<string> Images { get; set; }
+        List<string> ImageFileIds { get; set; }
 
         /// <summary>
         /// Get or set the model.
@@ -142,23 +135,13 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
         }
 
         /// <summary>
-        /// Get or set the attachments.
-        /// Stored in ConversationState with key "file_attachments".
-        /// </summary>
-        public List<Attachment> Attachments
-        {
-            get => this.Temp?.Get<List<Attachment>>("file_attachments") ?? new List<Attachment>();
-            set => this.Temp?.Set("file_attachments", value);
-        }
-
-        /// <summary>
         /// Get or set the images.
         /// Stored in ConversationState with key "conversation_images".
         /// </summary>
-        public List<string> Images
+        public List<string> ImageFileIds
         {
-            get => this.Temp?.Get<List<string>>("conversation_images") ?? new List<string>();
-            set => this.Temp?.Set("conversation_images", value);
+            get => this.Temp?.Get<List<string>>("conversation_image_file_ids") ?? new List<string>();
+            set => this.Temp?.Set("conversation_image_file_ids", value);
         }
 
         /// <summary>

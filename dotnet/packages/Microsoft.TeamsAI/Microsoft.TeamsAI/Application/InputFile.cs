@@ -22,6 +22,11 @@ namespace Microsoft.Teams.AI.Application
         public string? ContentUrl { get; set; }
 
         /// <summary>
+        /// Optional. Name of the file.
+        /// </summary>
+        public string? Filename { get; set; }
+
+        /// <summary>
         /// The constructor.
         /// </summary>
         /// <param name="content">The input file content</param>

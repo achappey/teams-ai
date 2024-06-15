@@ -119,123 +119,11 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
 
         private async Task<string> _EnsureThreadCreatedAsync(TState state)
         {
-            List<string> fileSearchFiles = state.Attachments
-                                .Where(t => t.Tools.Any(a => a == "file_search"))
-                                .Select(t => t.FileId)
-                                .ToList();
-
-            List<string> codeInterpreterFiles = state.Attachments
-                                .Where(t => t.Tools.Any(a => a == "code_interpreter"))
-                                .Select(t => t.FileId)
-                                .ToList();
-
-            VectorStoreFileAssociationOptions chunkingStrategy = new()
-            {
-                ChunkingStrategy = new VectorStoreChunkingStrategy()
-                {
-                    Type = "static",
-                    Static = new VectorStoreStaticChunkingStrategy()
-                    {
-                        MaxChunkSizeTokens = state.MaxChunkSizeTokens,
-                        ChunkOverlapTokens = state.ChunkOverlapTokens
-                    }
-                }
-            };
-
             if (state.ThreadId == null)
             {
-                ThreadCreationOptions threadCreationOptions = new()
-                {
-                    ToolResources = new()
-                    {
-                        FileSearch = fileSearchFiles.Any() ? new()
-                        {
-                            NewVectorStores = {
-                                  new VectorStoreCreationHelper(fileSearchFiles)
-                              }
-                        } : null,
-                        CodeInterpreter = codeInterpreterFiles.Any() ? new()
-                        {
-                            FileIds = codeInterpreterFiles
-                        } : null
-                    }
-                };
-
-                ClientResult<AssistantThread> thread = await this._client.CreateThreadAsync(threadCreationOptions);
-
-                state.ThreadId = thread.Value.Id;
+                AssistantThread thread = await _client.CreateThreadAsync(new ThreadCreationOptions());
+                state.ThreadId = thread.Id;
             }
-            else
-            {
-                if (fileSearchFiles.Any() || codeInterpreterFiles.Any())
-                {
-                    ClientResult<AssistantThread> thread = await _client.GetThreadAsync(state.ThreadId);
-                    AssistantThread assistantThread = thread.Value;
-                    FileSearchToolResources? fileSearch = assistantThread.ToolResources.FileSearch;
-
-                    if (fileSearchFiles.Any())
-                    {
-                        _logger.LogInformation("Ensure file_search");
-
-                        if (assistantThread.ToolResources.FileSearch?.VectorStoreIds?.Count() > 0)
-                        {
-                            foreach (string file in fileSearchFiles)
-                            {
-                                //TODO ChunkingStrategy = chunkingStrategy
-                                await _vectorStoreClient.AddFileToVectorStoreAsync(assistantThread.ToolResources.FileSearch.VectorStoreIds.First(), file,
-                                    chunkingStrategy);
-                            }
-                        }
-                        else
-                        {
-                            //TODO ChunkingStrategy = chunkingStrategy
-                            VectorStore store = await _vectorStoreClient.CreateVectorStoreAsync(new VectorStoreCreationOptions()
-                            {
-                                FileIds = fileSearchFiles,
-                                ChunkingStrategy = chunkingStrategy.ChunkingStrategy
-                            });
-
-                            fileSearch = new()
-                            {
-                                VectorStoreIds = [store.Id]
-                            };
-
-                            await _client.ModifyThreadAsync(assistantThread.Id, new()
-                            {
-                                ToolResources = new()
-                                {
-                                    FileSearch = fileSearch,
-                                    CodeInterpreter = assistantThread.ToolResources.CodeInterpreter.FileIds.Any()
-                                        ? assistantThread.ToolResources.CodeInterpreter
-                                        : null
-                                }
-                            });
-                        }
-
-                    }
-
-                    if (codeInterpreterFiles.Any())
-                    {
-                        _logger.LogInformation($"Ensure file_search. Thread: {assistantThread.Id}");
-
-                        await _client.ModifyThreadAsync(assistantThread.Id, new()
-                        {
-                            ToolResources = new()
-                            {
-                                FileSearch = fileSearch,
-                                CodeInterpreter = new()
-                                {
-                                    FileIds = [.. assistantThread.ToolResources.CodeInterpreter.FileIds, .. codeInterpreterFiles]
-                                }
-                            }
-                        });
-
-                    }
-                }
-
-            }
-
-            state.Attachments = [];
 
             return state.ThreadId;
         }
@@ -331,9 +219,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
 
                     foreach (TextAnnotation annotation in content.TextAnnotations.Where(a => a.InputFileId != null))
                     {
-                        context.Citations.Add(new(!string.IsNullOrEmpty(annotation.InputQuote) ?
-                              $"{annotation.StartIndex}-{annotation.EndIndex}: {annotation.InputQuote}"
-                              : $"{annotation.StartIndex}-{annotation.EndIndex}", annotation.TextToReplace, files[annotation.InputFileId].Filename));
+                        context.Citations.Add(new($"{annotation.StartIndex}-{annotation.EndIndex}", annotation.TextToReplace, files[annotation.InputFileId].Filename));
                     }
 
                     foreach (TextAnnotation annotation in content.TextAnnotations.Where(a => a.OutputFileId != null))
@@ -558,7 +444,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             List<ThreadInitializationMessage> input = new([
                 new ThreadInitializationMessage(
                     [state.Temp?.Input ?? string.Empty,
-                    .. state.Images.Select(a => MessageContent.FromImageFileId(a))
+                    .. state.ImageFileIds.Select(a => MessageContent.FromImageFileId(a))
                     ])
                 ]);
 
@@ -566,10 +452,18 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
 
             if (!string.IsNullOrEmpty(state.ToolChoice))
             {
-                toolchoice = state.ToolChoice == "file_search"
-                  ? new(ToolDefinition.CreateFileSearch()) : state.ToolChoice == "code_interpreter"
-                  ? new(ToolDefinition.CreateCodeInterpreter())
-                  : new(ToolDefinition.CreateFunction(state.ToolChoice));
+                switch (state.ToolChoice)
+                {
+                    case "file_search":
+                        toolchoice = new(ToolDefinition.CreateFileSearch());
+                        break;
+                    case "code_interpreter":
+                        toolchoice = new(ToolDefinition.CreateCodeInterpreter());
+                        break;
+                    default:
+                        toolchoice = new(ToolDefinition.CreateFunction(state.ToolChoice));
+                        break;
+                }
             }
 
             RunCreationOptions runCreateParams =
