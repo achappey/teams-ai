@@ -444,7 +444,7 @@ namespace Microsoft.Teams.AI.AI.Planners.Experimental
             List<ThreadInitializationMessage> input = new([
                 new ThreadInitializationMessage(
                     [state.Temp?.Input ?? string.Empty,
-                    .. state.ImageFileIds.Select(a => MessageContent.FromImageFileId(a))
+                    .. state.ImageFileIds.Select(a => MessageContent.FromImageFileId(a, MessageImageDetail.High))
                     ])
                 ]);
 
